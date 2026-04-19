@@ -16,3 +16,4 @@ numbers live in each `EXXX_*.md` — this table is just for scanning.
 | E009 | fusion-score-level | fusion | Platt calib + grid search w=0.28 (72% image) | 3.75 (OOF overall) | 0.0750 | beats both modalities alone; image gets more weight |
 | E010 | audio-ubm64 | audio | UBM 64 + MAP adapt r=16, +All aug | 6.39 ± 3.93 | 0.0611 | regression vs E008 (4.21%); 64 comp over-parameterized for dataset size |
 | E011 | image-pca-sweep | image | PCA sweep n∈{20,30,50,75,100,150} + LogReg + +All aug | 0.97 ± 0.86 (n=50) | 0.0194 | n=50 confirmed optimal; <30 underfit, ≥75 plateau at 1.25% EER |
+| E012 | audio-cmvn | audio | UBM 32 + MAP r=16, MFCC 13+Δ+ΔΔ, CMVN (+All aug) | 6.16 ± 3.78 | 0.0796 | regression vs E008 CMN (4.21%); CMVN removes speaker-discriminative variance |
