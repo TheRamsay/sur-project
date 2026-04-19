@@ -212,6 +212,8 @@ logs/                   — runtime logs (gitignored)
 | E017 | audio | GMM supervector (1248d) + LinearSVM | 9.07 ± 7.45 % | ❌ n_features >> n_samples; LLR inductive bias wins |
 | E018 | audio | VTLP α∈[0.9,1.1] (replace speed) | 3.94 ± 3.28 % | ↔ marginal mean gain, min-DCF regresses |
 | E019 | audio | SDC N=7,d=1,P=3 (104d) + UBM+MAP | 12.96 ± 4.79 % | ❌ too high-dim for GMM-32 on small data |
+| E020 | audio | LPCC 13+Δ+ΔΔ + UBM+MAP | 3.33 ± 4.14 % | ✓ best mean EER + min-DCF; complementary folds to E008 |
+| E021 | audio | PLP 13+Δ+ΔΔ (Bark+EL+cbrt) + UBM+MAP | 5.56 ± 2.58 % | ❌ Bark front-end too lossy; cube-root hurts GMM fitting |
 
 ### EER: per-fold mean vs OOF overall (important distinction)
 
@@ -245,7 +247,10 @@ somewhere between these. Report both; do not cherry-pick the better number.
 - More aggressive image augs ❌ (jpeg/blur/rotate/contrast): all hurt — E007 +All is optimal.
 - FBank/SDC/supervector ❌: higher-dim features over-parameterize GMM-32 on our dataset. DCT compression and Δ+ΔΔ are beneficial regularizers, not limitations.
 - VTLP ↔: marginal mean gain but min-DCF regresses — E008 stays.
-- **All hyperparameters and choices are now ablation-validated across 19 experiments.**
+- LPCC ✓: 3.33 ± 4.14% mean EER, min-DCF 0.0333 — best on both metrics. Fold errors complementary to E008 (fold0 LPCC fails, E008 wins; fold1 LPCC wins, E008 fails).
+- PLP ❌: Bark front-end too coarse for 20-band LPC; cube-root compression hurts GMM fitting.
+- **LPCC and E008 MFCC have complementary fold errors → audio-level fusion could push below 3%.**
+- **All choices now validated across 21 experiments.**
 
 ---
 
@@ -281,4 +286,4 @@ This tells the story: baseline → UBM+MAP → augmentation → fusion.
 - [ ] Generate the 6 result files on eval data (2026-05-03 morning)
 - [ ] `dokumentace.pdf` — explain WHY for every design choice, ablation tables required
 
-### ✅ All experiments complete — 19 total, all choices ablation-validated.
+### 21 experiments complete. See key findings — LPCC+E008 audio fusion is the one remaining opportunity.
