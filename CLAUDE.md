@@ -212,8 +212,9 @@ logs/                   — runtime logs (gitignored)
 | E017 | audio | GMM supervector (1248d) + LinearSVM | 9.07 ± 7.45 % | ❌ n_features >> n_samples; LLR inductive bias wins |
 | E018 | audio | VTLP α∈[0.9,1.1] (replace speed) | 3.94 ± 3.28 % | ↔ marginal mean gain, min-DCF regresses |
 | E019 | audio | SDC N=7,d=1,P=3 (104d) + UBM+MAP | 12.96 ± 4.79 % | ❌ too high-dim for GMM-32 on small data |
-| E020 | audio | LPCC 13+Δ+ΔΔ + UBM+MAP | 3.33 ± 4.14 % | ✓ best mean EER + min-DCF; complementary folds to E008 |
+| E020 | audio | LPCC 13+Δ+ΔΔ + UBM+MAP | 3.33 ± 4.14 % | ✓ best audio mean EER + min-DCF → new audio flagship |
 | E021 | audio | PLP 13+Δ+ΔΔ (Bark+EL+cbrt) + UBM+MAP | 5.56 ± 2.58 % | ❌ Bark front-end too lossy; cube-root hurts GMM fitting |
+| E022 | audio | MFCC+LPCC score fusion | 3.33 ± 4.14 % | ↔ collapsed to LPCC alone (w=0.07); calibration asymmetry |
 
 ### EER: per-fold mean vs OOF overall (important distinction)
 
@@ -249,8 +250,9 @@ somewhere between these. Report both; do not cherry-pick the better number.
 - VTLP ↔: marginal mean gain but min-DCF regresses — E008 stays.
 - LPCC ✓: 3.33 ± 4.14% mean EER, min-DCF 0.0333 — best on both metrics. Fold errors complementary to E008 (fold0 LPCC fails, E008 wins; fold1 LPCC wins, E008 fails).
 - PLP ❌: Bark front-end too coarse for 20-band LPC; cube-root compression hurts GMM fitting.
-- **LPCC and E008 MFCC have complementary fold errors → audio-level fusion could push below 3%.**
-- **All choices now validated across 21 experiments.**
+- LPCC+MFCC audio fusion (E022) ↔: global Platt calibration gave LPCC 2× dynamic range → grid search converged to w=0.07 (essentially LPCC alone). Fusion = LPCC alone result.
+- **Remaining opportunity: use LPCC as audio flagship in multimodal fusion (E023) instead of MFCC.**
+- **All choices validated across 22 experiments.**
 
 ---
 
@@ -286,4 +288,4 @@ This tells the story: baseline → UBM+MAP → augmentation → fusion.
 - [ ] Generate the 6 result files on eval data (2026-05-03 morning)
 - [ ] `dokumentace.pdf` — explain WHY for every design choice, ablation tables required
 
-### 21 experiments complete. See key findings — LPCC+E008 audio fusion is the one remaining opportunity.
+### 22 experiments complete. LPCC is now the audio flagship. Remaining: E023 multimodal fusion with LPCC.
