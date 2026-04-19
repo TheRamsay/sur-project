@@ -208,6 +208,10 @@ logs/                   — runtime logs (gitignored)
 | E013 | audio | MAP r∈{4,8,16,32,64} + aug | 4.21 ± 3.11 % (r≤16 plateau) | r=16 confirmed |
 | E014 | audio | +All + codec/lownoise/pitch/clip | 4.21 % (+All still wins) | ❌ all 4 new augs hurt |
 | E015 | image | +All + jpeg/blur/rotate/contrast | 0.97 % (+All still wins) | ❌ all 4 new augs hurt |
+| E016 | audio | FBank 40+Δ+ΔΔ (120d) + UBM+MAP | 9.95 ± 1.36 % | ❌ DCT compression is beneficial regularization for GMM |
+| E017 | audio | GMM supervector (1248d) + LinearSVM | 9.07 ± 7.45 % | ❌ n_features >> n_samples; LLR inductive bias wins |
+| E018 | audio | VTLP α∈[0.9,1.1] (replace speed) | 3.94 ± 3.28 % | ↔ marginal mean gain, min-DCF regresses |
+| E019 | audio | SDC N=7,d=1,P=3 (104d) + UBM+MAP | 12.96 ± 4.79 % | ❌ too high-dim for GMM-32 on small data |
 
 ### EER: per-fold mean vs OOF overall (important distinction)
 
@@ -239,7 +243,9 @@ somewhere between these. Report both; do not cherry-pick the better number.
 - MAP r∈{4,8,16} plateau: r=16 is confirmed robust, not arbitrary.
 - More aggressive audio augs ❌ (codec/pitch/clip/10dB noise): all hurt — E008 +All is optimal.
 - More aggressive image augs ❌ (jpeg/blur/rotate/contrast): all hurt — E007 +All is optimal.
-- **All hyperparameters and augmentation choices are now ablation-validated, not guessed.**
+- FBank/SDC/supervector ❌: higher-dim features over-parameterize GMM-32 on our dataset. DCT compression and Δ+ΔΔ are beneficial regularizers, not limitations.
+- VTLP ↔: marginal mean gain but min-DCF regresses — E008 stays.
+- **All hyperparameters and choices are now ablation-validated across 19 experiments.**
 
 ---
 
@@ -275,4 +281,4 @@ This tells the story: baseline → UBM+MAP → augmentation → fusion.
 - [ ] Generate the 6 result files on eval data (2026-05-03 morning)
 - [ ] `dokumentace.pdf` — explain WHY for every design choice, ablation tables required
 
-### ✅ All experiments complete — 15 total, all hyperparameters ablation-validated.
+### ✅ All experiments complete — 19 total, all choices ablation-validated.
