@@ -6,17 +6,17 @@
 
 ## Hypothesis
 
-13 MFCC koeficientů s CMN, dva oddělené GMM modely (target a non-target),
-skóre jako LLR. Očekáváme EER v rozmezí 15–30 % — baseline by neměl být
-skvělý, ale měl by být lepší než náhoda (EER = 50 %).
+13 MFCC coefficients with per-utterance CMN, two separate GMM models (target
+and non-target), score as LLR. Expected EER in the 15–30 % range — the
+baseline should not be great, but better than chance (EER = 50 %).
 
 ## Setup
 
 - **Modality:** audio
-- **Data:** train + dev (combined), 222 vzorků (30 target, 192 non-target)
-- **Features:** MFCC 13, CMN (per-utterance), bez delta
-- **Model:** dva GMM — target (8 komponent), non-target (32 komponent)
-- **Fold spec:** `iter_folds_loso`, seed=67, 3 foldy (LOSO na target sessions)
+- **Data:** train + dev (combined), 222 samples (30 target, 192 non-target)
+- **Features:** MFCC 13, CMN (per-utterance), no deltas
+- **Model:** two GMMs — target (8 components), non-target (32 components)
+- **Fold spec:** `iter_folds_loso`, seed=67, 3 folds (LOSO on target sessions)
 - **Seed:** 67
 - **Command / notebook:** `notebooks/E001_audio_gmm.ipynb`
 - **Augmentation:** none
@@ -30,21 +30,21 @@ skvělý, ale měl by být lepší než náhoda (EER = 50 %).
 | 2    | 9.17    | 0.1833  |
 | mean ± std | 17.92 ± 7.81 | 0.2250 ± 0.0722 |
 
-OOF celkové: EER = 14.48 %, min-DCF = 0.2677, threshold = −1.267
+OOF overall: EER = 14.48 %, min-DCF = 0.2677, threshold = −1.267
 
 ## Interpretation
 
-Hypotéza potvrzena — systém je lepší než náhoda (EER < 50 %).
-Fold 2 (session 03) výrazně lepší než foldy 0 a 1 — pravděpodobně session 03
-je kvalitativně blíže trénovacím session. Velký std (7.81 %) říká, že výsledek
-silně závisí na tom, která session je na valu — to je realistický odhad
-variability na ostrých datech.
+Hypothesis confirmed — system beats chance (EER < 50 %). Fold 2 (session 03)
+significantly better than folds 0 and 1 — likely session 03 is qualitatively
+closer to the training sessions. Large std (7.81 %) shows results depend
+heavily on which session is held out — a realistic estimate of variability on
+unseen eval data.
 
-Threshold −1.267 (ne 0) naznačuje, že skóre nejsou dobře kalibrovaná —
-GMM pro non-target je "příliš jistý". Kalibrace by pomohla.
+Threshold −1.267 (not 0) indicates scores are not well calibrated — the
+non-target GMM is overconfident. Platt calibration on OOF scores would help.
 
 ## Next step
 
-- E002: přidat delta + delta-delta MFCC → očekáváme zlepšení o 3–5 % EER
-- E003: GMM-UBM + MAP adaptace (flagship audio systém)
-- Zvážit kalibraci skóre (Platt) na OOF
+- E002: add delta + delta-delta MFCC → expect 3–5 % EER improvement
+- E003: GMM-UBM + MAP adaptation (flagship audio system)
+- Consider Platt calibration on OOF scores
