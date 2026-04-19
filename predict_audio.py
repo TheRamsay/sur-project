@@ -76,6 +76,17 @@ def _score_wav(wav_path: Path, adapted: GaussianMixture, ubm: GaussianMixture) -
     return float((adapted.score_samples(mfcc) - ubm.score_samples(mfcc)).mean())
 
 
+def _score_wav_tta(wav_path: Path, adapted: GaussianMixture, ubm: GaussianMixture) -> float:
+    """TTA: average original + one speed-perturbed score (fixed seed → deterministic)."""
+    y, sr = librosa.load(wav_path, sr=None, mono=True)
+    score_orig = float((adapted.score_samples(_extract_mfcc(y, sr))
+                        - ubm.score_samples(_extract_mfcc(y, sr))).mean())
+    y_tta = _aug_speed(y, np.random.default_rng(0))
+    score_tta  = float((adapted.score_samples(_extract_mfcc(y_tta, sr))
+                        - ubm.score_samples(_extract_mfcc(y_tta, sr))).mean())
+    return (score_orig + score_tta) / 2
+
+
 # ---------------------------------------------------------------------------
 # Model
 # ---------------------------------------------------------------------------
@@ -162,7 +173,7 @@ def main():
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with open(args.output, "w") as f:
         for wav in wavs:
-            raw   = _score_wav(wav, adapted, ubm)
+            raw   = _score_wav_tta(wav, adapted, ubm)
             score = float(cal.decision_function([[raw]])[0])
             hard  = 1 if score >= threshold else 0
             f.write(f"{wav.stem} {score:.6f} {hard}\n")

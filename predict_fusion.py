@@ -107,6 +107,16 @@ def _score_wav(wav_path, adapted, ubm):
     return float((adapted.score_samples(mfcc) - ubm.score_samples(mfcc)).mean())
 
 
+def _score_wav_tta(wav_path, adapted, ubm):
+    y, sr      = librosa.load(wav_path, sr=None, mono=True)
+    score_orig = float((adapted.score_samples(_extract_mfcc(y, sr))
+                        - ubm.score_samples(_extract_mfcc(y, sr))).mean())
+    y_tta      = _aug_speed(y, np.random.default_rng(0))
+    score_tta  = float((adapted.score_samples(_extract_mfcc(y_tta, sr))
+                        - ubm.score_samples(_extract_mfcc(y_tta, sr))).mean())
+    return (score_orig + score_tta) / 2
+
+
 # ---------------------------------------------------------------------------
 # Image helpers
 # ---------------------------------------------------------------------------
@@ -154,6 +164,14 @@ def _train_image(df, data_dir, augment, seed):
 def _score_png(png_path, scaler, pca, clf):
     x = _load_image(png_path).reshape(1, -1)
     return float(clf.decision_function(pca.transform(scaler.transform(x)))[0])
+
+
+def _score_png_tta(png_path, scaler, pca, clf):
+    x      = _load_image(png_path)
+    x_flip = x.reshape(80, 80)[:, ::-1].flatten()
+    s_orig = float(clf.decision_function(pca.transform(scaler.transform(x.reshape(1,-1))))[0])
+    s_flip = float(clf.decision_function(pca.transform(scaler.transform(x_flip.reshape(1,-1))))[0])
+    return (s_orig + s_flip) / 2
 
 
 # ---------------------------------------------------------------------------
@@ -244,16 +262,15 @@ def main():
             stem = wav.stem
             png  = eval_dir / (stem + ".png")
 
-            raw_audio = _score_wav(wav, adapted, ubm)
+            raw_audio = _score_wav_tta(wav, adapted, ubm)
             cal_audio_score = float(cal_audio.decision_function([[raw_audio]])[0])
 
             if png.exists():
-                raw_image = _score_png(png, scaler, pca, clf)
+                raw_image = _score_png_tta(png, scaler, pca, clf)
                 cal_image_score = float(cal_image.decision_function([[raw_image]])[0])
                 score = best_w * cal_audio_score + (1 - best_w) * cal_image_score
             else:
-                # Fall back to audio-only if image missing
-                score = cal_audio_score
+                score = cal_audio_score  # fall back to audio-only if image missing
 
             hard = 1 if score >= threshold else 0
             f.write(f"{stem} {score:.6f} {hard}\n")

@@ -80,9 +80,18 @@ def _train(df, data_dir: Path, augment: bool, seed: int):
 
 
 def _score_png(png_path: Path, scaler, pca, clf) -> float:
-    x    = _load_image(png_path).reshape(1, -1)
+    x     = _load_image(png_path).reshape(1, -1)
     x_pca = pca.transform(scaler.transform(x))
     return float(clf.decision_function(x_pca)[0])
+
+
+def _score_png_tta(png_path: Path, scaler, pca, clf) -> float:
+    """TTA: average original + horizontally flipped score."""
+    x      = _load_image(png_path)
+    x_flip = _aug_flip(x)
+    score_orig = float(clf.decision_function(pca.transform(scaler.transform(x.reshape(1,-1))))[0])
+    score_flip = float(clf.decision_function(pca.transform(scaler.transform(x_flip.reshape(1,-1))))[0])
+    return (score_orig + score_flip) / 2
 
 
 # ---------------------------------------------------------------------------
@@ -144,7 +153,7 @@ def main():
 
     with open(args.output, "w") as f:
         for png in pngs:
-            raw   = _score_png(png, scaler, pca, clf)
+            raw   = _score_png_tta(png, scaler, pca, clf)
             score = float(cal.decision_function([[raw]])[0])
             hard  = 1 if score >= threshold else 0
             f.write(f"{png.stem} {score:.6f} {hard}\n")
