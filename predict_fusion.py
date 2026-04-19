@@ -130,8 +130,10 @@ def _find_png(stem: str, data_dir: Path) -> Path:
 
 
 def _load_image(path):
-    img = np.array(Image.open(path).convert("RGB"), dtype=np.float32)
-    return img.mean(axis=2).flatten()
+    img = Image.open(path).convert("RGB")
+    if img.size != (80, 80):
+        img = img.resize((80, 80), Image.BILINEAR)
+    return np.array(img, dtype=np.float32).mean(axis=2).flatten()
 
 
 def _load_image_dataset(df, data_dir, augment, seed):

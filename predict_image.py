@@ -35,8 +35,11 @@ def _find_png(stem: str, data_dir: Path) -> Path:
 
 
 def _load_image(path: Path) -> np.ndarray:
-    img = np.array(Image.open(path).convert("RGB"), dtype=np.float32)
-    return img.mean(axis=2).flatten()
+    # convert("RGB") strips alpha channel; resize guards against eval format surprises
+    img = Image.open(path).convert("RGB")
+    if img.size != (80, 80):
+        img = img.resize((80, 80), Image.BILINEAR)
+    return np.array(img, dtype=np.float32).mean(axis=2).flatten()
 
 
 def _aug_flip(x: np.ndarray) -> np.ndarray:
