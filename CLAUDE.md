@@ -201,7 +201,7 @@ logs/                   — runtime logs (gitignored)
 | E006 | image | PCA 100 + LDA shrinkage=auto | 18.24 ± 1.53 % | ❌ 1D bottleneck |
 | E007 | image | PCA 50 + LogReg + aug (+All) | **0.97 ± 0.86 %** | ← image flagship |
 | E008 | audio | UBM+MAP + aug (+All) | **4.21 ± 3.11 %** | ← audio flagship |
-| E009 | fusion | Platt calib + grid w=0.28 | **3.75 % OOF overall** | ← fusion flagship |
+| E009 | fusion | Platt calib + MFCC+image grid w=0.28 | 3.75 % OOF overall | superseded by E023 |
 | E010 | audio | UBM 64 + MAP + aug | 6.39 ± 3.93 % | ❌ over-param; 32 confirmed |
 | E011 | image | PCA sweep n∈{20…150} + aug | 0.97 ± 0.86 % (n=50 wins) | n=50 confirmed optimal |
 | E012 | audio | UBM+MAP + CMVN + aug | 6.16 ± 3.78 % | ❌ CMVN removes discriminative variance |
@@ -215,6 +215,7 @@ logs/                   — runtime logs (gitignored)
 | E020 | audio | LPCC 13+Δ+ΔΔ + UBM+MAP | 3.33 ± 4.14 % | ✓ best audio mean EER + min-DCF → new audio flagship |
 | E021 | audio | PLP 13+Δ+ΔΔ (Bark+EL+cbrt) + UBM+MAP | 5.56 ± 2.58 % | ❌ Bark front-end too lossy; cube-root hurts GMM fitting |
 | E022 | audio | MFCC+LPCC score fusion | 3.33 ± 4.14 % | ↔ collapsed to LPCC alone (w=0.07); calibration asymmetry |
+| E023 | fusion | Platt calib + LPCC+image grid w=0.36 | **0.52 % OOF overall** | ← fusion flagship; −3.23pp vs E009 |
 
 ### EER: per-fold mean vs OOF overall (important distinction)
 
@@ -251,8 +252,8 @@ somewhere between these. Report both; do not cherry-pick the better number.
 - LPCC ✓: 3.33 ± 4.14% mean EER, min-DCF 0.0333 — best on both metrics. Fold errors complementary to E008 (fold0 LPCC fails, E008 wins; fold1 LPCC wins, E008 fails).
 - PLP ❌: Bark front-end too coarse for 20-band LPC; cube-root compression hurts GMM fitting.
 - LPCC+MFCC audio fusion (E022) ↔: global Platt calibration gave LPCC 2× dynamic range → grid search converged to w=0.07 (essentially LPCC alone). Fusion = LPCC alone result.
-- **Remaining opportunity: use LPCC as audio flagship in multimodal fusion (E023) instead of MFCC.**
-- **All choices validated across 22 experiments.**
+- E023 LPCC+image fusion: **0.52% OOF EER** — −3.23pp vs E009 MFCC+image (3.75%). New fusion flagship.
+- **All experiments complete: 23 total. Flagships: audio=E020 LPCC, image=E007 PCA+LogReg+aug, fusion=E023 LPCC+image.**
 
 ---
 
@@ -288,4 +289,4 @@ This tells the story: baseline → UBM+MAP → augmentation → fusion.
 - [ ] Generate the 6 result files on eval data (2026-05-03 morning)
 - [ ] `dokumentace.pdf` — explain WHY for every design choice, ablation tables required
 
-### 22 experiments complete. LPCC is now the audio flagship. Remaining: E023 multimodal fusion with LPCC.
+### ✅ 23 experiments complete. Flagships locked: audio=LPCC (E020), image=PCA+aug (E007), fusion=LPCC+image (E023, 0.52% OOF EER).

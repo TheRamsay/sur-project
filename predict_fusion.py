@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-E009 fusion system: calibrated audio (E008) + image (E007) scores, w=0.28 audio.
+E023 fusion system: calibrated LPCC audio (E020) + image (E007) scores.
 
-Finds optimal fusion weight via grid search on OOF calibrated scores,
-then applies it to eval data.
+Audio uses LPCC 13+Δ+ΔΔ (E020, EER 3.33%) instead of MFCC (E008, 4.21%).
+Finds optimal fusion weight via grid search on OOF calibrated scores (w≈0.36 audio).
+OOF fusion EER: 0.52% vs E009 MFCC+image 3.75%.
 
 Usage:
     uv run predict_fusion.py --eval-dir /path/to/eval --output results/fusion_score.txt
@@ -47,12 +48,25 @@ def _find_wav(stem: str, data_dir: Path) -> Path:
 
 
 def _extract_mfcc(y: np.ndarray, sr: int) -> np.ndarray:
-    mfcc   = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
-    delta  = librosa.feature.delta(mfcc)
-    delta2 = librosa.feature.delta(mfcc, order=2)
-    mfcc   = np.vstack([mfcc, delta, delta2]).T
-    mfcc  -= mfcc.mean(axis=0)
-    return mfcc
+    """LPCC 13+Δ+ΔΔ+CMN (E020 flagship — outperforms MFCC)."""
+    frames = librosa.util.frame(y, frame_length=400, hop_length=160)
+    lpcc_frames = []
+    for frame in frames.T:
+        frame = frame * np.hanning(len(frame))
+        try:
+            a = librosa.lpc(frame.astype(np.float64), order=12)
+            A_freq = np.fft.rfft(a, n=512)
+            log_H = -np.log(np.abs(A_freq) + 1e-10)
+            cep = np.real(np.fft.irfft(log_H))[:13]
+        except Exception:
+            cep = np.zeros(13)
+        lpcc_frames.append(cep)
+    feat   = np.array(lpcc_frames, dtype=np.float32)
+    delta  = librosa.feature.delta(feat.T).T
+    delta2 = librosa.feature.delta(feat.T, order=2).T
+    feat   = np.hstack([feat, delta, delta2])
+    feat  -= feat.mean(axis=0)
+    return feat
 
 
 def _aug_noise_audio(y, rng):
