@@ -197,6 +197,7 @@ logs/                   — runtime logs (gitignored)
 | E004 | image | PCA 50 + LogReg | **4.49 ± 4.26 %** ← image flagship |
 | E005 | image | LBP 4×4 + LogReg | 17.78 ± 23.58 % ❌ fold 2 collapse |
 | E006 | image | PCA 100 + LDA shrinkage=auto | 18.24 ± 1.53 % ❌ 1D bottleneck |
+| E007 | image | PCA 50 + LogReg + aug (flip+brightness+noise) | **0.97 ± 0.86 %** ← image flagship |
 
 **Key findings so far:**
 - Deltas (+Δ+ΔΔ) gave −7.83% EER on audio and cut variance dramatically — always use them.
@@ -215,7 +216,7 @@ logs/                   — runtime logs (gitignored)
 - [x] `src/data/splits.py` — LOSO splitter, group-aware
 - [x] `src/eval/metrics.py` — EER, min-DCF, hard decisions
 - [x] Audio E001–E003 (MFCC→GMM→UBM+MAP, flagship=E003)
-- [x] Image E004–E006 (PCA+logreg wins, flagship=E004)
+- [x] Image E004–E007 (PCA+logreg+augmentation wins, flagship=E007)
 - [ ] Score calibration (Platt on OOF) — image threshold far from 0, needed before fusion
 - [ ] E007: Score-level fusion (calibrated audio E003 + image E004 OOF → logreg)
 - [ ] Audio augmentation ablation (noise, speed, pitch) — after fusion baseline

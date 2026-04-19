@@ -11,3 +11,4 @@ numbers live in each `EXXX_*.md` — this table is just for scanning.
 | E004 | image-pca-logreg-baseline | image | PCA 50 + LogReg C=1, 80×80 grayscale | 4.49 ± 4.26 | 0.0565 ± 0.0352 | beats audio flagship, strong anchor |
 | E005 | image-lbp-logreg | image | LBP 4×4 grid 256-bin + LogReg C=1 | 17.78 ± 23.58 | 0.2278 ± 0.2502 | fold 2 collapsed (45% EER), session shift kills LBP |
 | E006 | image-fisherfaces | image | PCA 100 + LDA shrinkage=auto | 18.24 ± 1.53 | 0.2657 ± 0.0667 | LDA 1D bottleneck loses to logreg in 50D, E004 stays flagship |
+| E007 | image-augmentation-ablation | image | PCA 50 + LogReg + aug ablation (flip/bright/noise/all) | 0.97 ± 0.86 (+All) | 0.0194 | brightness key contributor; +All = new image flagship |
