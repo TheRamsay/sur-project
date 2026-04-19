@@ -187,18 +187,43 @@ logs/                   — runtime logs (gitignored)
 
 ---
 
-## 7. What to build next (living TODO)
+## 7. Empirical findings (updated as experiments land)
 
-Keep this list short. Rework as reality changes.
+| Exp | Modality | Model | EER mean±std |
+|-----|----------|-------|--------------|
+| E001 | audio | MFCC 13 + GMM | 17.92 ± 7.81 % |
+| E002 | audio | MFCC 13+Δ+ΔΔ + GMM | 10.09 ± 1.81 % |
+| E003 | audio | UBM 32 + MAP r=16, MFCC+Δ+ΔΔ | **7.45 ± 5.04 %** ← audio flagship |
+| E004 | image | PCA 50 + LogReg | **4.49 ± 4.26 %** ← image flagship |
+| E005 | image | LBP 4×4 + LogReg | 17.78 ± 23.58 % ❌ fold 2 collapse |
+| E006 | image | PCA 100 + LDA shrinkage=auto | 18.24 ± 1.53 % ❌ 1D bottleneck |
 
-- [x] Project skeleton + deps (`uv add` done: scikit-learn, scipy, librosa,
-      matplotlib, tqdm, pandas, jupytext).
-- [x] Data exploration notebook.
-- [ ] `src/data/splits.py` — single source of truth for fold assignment.
-- [ ] `src/eval/metrics.py` — EER, min-DCF, OOF collection helpers.
-- [ ] Audio baseline (MFCC + GMM) → first experiment.
-- [ ] Image baseline (PCA + logreg) → first experiment.
-- [ ] Augmentation ablations per modality.
-- [ ] Fusion (score-level first, then feature-level).
-- [ ] Calibration + threshold selection on OOF.
-- [ ] Draft `dokumentace.pdf` section by section as experiments land.
+**Key findings so far:**
+- Deltas (+Δ+ΔΔ) gave −7.83% EER on audio and cut variance dramatically — always use them.
+- Image beats audio: faces are very distinctive in PCA space for this person.
+- LBP failed: session pose/lighting shift kills texture features. PCA global structure more stable.
+- LDA collapses to 1D for binary — with 20 target samples this loses badly vs logreg in 50D.
+- UBM+MAP threshold ≈ 0 (calibrated). Image logreg threshold ≈ −5 (needs calibration before fusion).
+- Large fold std is expected with 3 LOSO folds — report it, never hide it.
+
+---
+
+## 8. What to build next (living TODO)
+
+- [x] Project skeleton + deps
+- [x] Data exploration notebook
+- [x] `src/data/splits.py` — LOSO splitter, group-aware
+- [x] `src/eval/metrics.py` — EER, min-DCF, hard decisions
+- [x] Audio E001–E003 (MFCC→GMM→UBM+MAP, flagship=E003)
+- [x] Image E004–E006 (PCA+logreg wins, flagship=E004)
+- [ ] Score calibration (Platt on OOF) — image threshold far from 0, needed before fusion
+- [ ] E007: Score-level fusion (calibrated audio E003 + image E004 OOF → logreg)
+- [ ] Audio augmentation ablation (noise, speed, pitch) — after fusion baseline
+- [ ] Production scripts: `predict_audio.py`, `predict_image.py`, `predict_fusion.py`
+- [ ] Self-test mini-eval set (mandatory before submission)
+- [ ] `dokumentace.pdf` — write as experiments land
+- [ ] Fusion E007: score-level weighted sum / logreg on OOF scores
+- [ ] Audio augmentation ablation (noise, speed, pitch) — do after fusion baseline
+- [ ] Production scripts: `predict_audio.py`, `predict_image.py`, `predict_fusion.py`
+- [ ] Self-test mini-eval set (mandatory before submission)
+- [ ] `dokumentace.pdf` — write section by section as experiments land
