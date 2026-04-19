@@ -225,11 +225,11 @@ logs/                   — runtime logs (gitignored)
 
 Per-fold mean and OOF overall EER are different numbers and mean different things:
 
-| System | Per-fold mean | OOF overall |
-|--------|--------------|-------------|
-| Image E007 | 0.97% | ~10% |
-| Audio E008 | 4.21% | ~9% |
-| Fusion E009 | — | 3.75% |
+| Flagship | Per-fold mean | OOF overall |
+|----------|--------------|-------------|
+| Image E007 | 0.97 ± 0.86% | ~4% |
+| Audio E025 LPCC+Pitch | 1.94 ± 1.57% | ~4% |
+| Fusion E027 trimodal | — | **0.26%** |
 
 **Per-fold mean** = average of 3 separate evaluations, each on its own session context.
 **OOF overall** = all 222 samples evaluated at once, mixing 3 different fold models.
@@ -270,14 +270,14 @@ Burget scores up to 6 files. Use the slots to show ablation progression:
 
 | File | Experiment | Purpose |
 |------|-----------|---------|
-| `audio_gmm_baseline.txt` | E001 | Audio anchor (lecture baseline) |
-| `audio_ubm_map_aug.txt` | E008 | Audio flagship |
-| `image_pca_logreg_baseline.txt` | E004 | Image anchor (no aug) |
-| `image_pca_logreg_aug.txt` | E007 | Image flagship |
-| `fusion_score.txt` | E009 | Fusion flagship |
-| `audio_ubm_map_noaug.txt` | E003 | Audio ablation (shows aug contribution) |
+| `audio_mfcc_gmm_baseline.txt` | E001 | Audio anchor (lecture baseline), 17.92% |
+| `audio_mfcc_ubm_map_aug.txt` | E008 | MFCC flagship, 4.21%, shows UBM+MAP+aug contribution |
+| `audio_lpcc_pitch.txt` | E025 | **Audio flagship**, 1.94%, LPCC+Pitch |
+| `image_pca_baseline.txt` | E004 | Image anchor (no aug), 4.49% |
+| `image_pca_aug.txt` | E007 | **Image flagship**, 0.97%, PCA+LogReg+aug |
+| `fusion_trimodal.txt` | E027 | **Fusion flagship**, 0.26% OOF, MFCC+LPCC+image |
 
-This tells the story: baseline → UBM+MAP → augmentation → fusion.
+Story: baseline → UBM+MAP → features (MFCC→LPCC) → augmentation → trimodal fusion.
 
 ---
 
@@ -287,12 +287,12 @@ This tells the story: baseline → UBM+MAP → augmentation → fusion.
 - [x] Data exploration notebook
 - [x] `src/data/splits.py` — LOSO splitter, group-aware
 - [x] `src/eval/metrics.py` — EER, min-DCF, hard decisions
-- [x] Audio E001–E008 (UBM+MAP+aug, flagship=E008)
-- [x] Image E004–E007 (PCA+logreg+aug, flagship=E007)
+- [x] Audio E001–E027 (flagship=E025 LPCC+Pitch at 1.94% per-fold mean)
+- [x] Image E004–E015 (flagship=E007 PCA+LogReg+aug at 0.97%)
 - [x] Score calibration (Platt + class_weight='balanced' on OOF)
-- [x] E009 score-level fusion (grid search w=0.28)
+- [x] Fusion E009/E023/E026/E027 (flagship=E027 trimodal at 0.26% OOF EER)
 - [x] Production scripts (`predict_audio.py`, `predict_image.py`, `predict_fusion.py`)
-- [ ] Self-test mini-eval set — **mandatory before submission** (Burget: "people send files with scores scrambled")
+- [x] Self-test mini-eval set (`self_test.py`) — validates format, stem integrity, score ordering
 - [ ] Generate the 6 result files on eval data (2026-05-03 morning)
 - [ ] `dokumentace.pdf` — explain WHY for every design choice, ablation tables required
 
