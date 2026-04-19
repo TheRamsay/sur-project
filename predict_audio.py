@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-E020 audio system: UBM-MAP + LPCC 13+Δ+ΔΔ + noise/speed augmentation.
+E025 audio system: UBM-MAP + LPCC 13+Δ+ΔΔ + pitch-shift augmentation.
 
-LPCC (LPC Cepstral Coefficients) outperforms MFCC on this dataset:
-EER 3.33±4.14% vs MFCC 4.21±3.11%, min-DCF 0.0333 vs 0.0509.
+LPCC with pitch augmentation is the audio flagship on this dataset:
+EER 1.94±1.57% (E025) vs LPCC+NoiseSpeed 3.33±4.14% (E020) vs MFCC 4.21% (E008).
+LPCC encodes formants directly, so pitch perturbation is the right aug axis.
 
 Usage:
     uv run predict_audio.py --eval-dir /path/to/eval --output results/audio_ubm_map.txt
@@ -63,13 +64,13 @@ def _extract_features(y: np.ndarray, sr: int,
     return feat
 
 
-def _aug_noise(y: np.ndarray, rng: np.random.Generator) -> np.ndarray:
-    power = np.mean(y ** 2) + 1e-10
-    noise = rng.normal(0, np.sqrt(power / 10 ** (SNR_DB / 10)), len(y))
-    return (y + noise.astype(y.dtype))
+def _aug_pitch(y: np.ndarray, sr: int, rng: np.random.Generator) -> np.ndarray:
+    n_steps = float(rng.choice([-2, -1, 1, 2]))
+    return librosa.effects.pitch_shift(y, sr=sr, n_steps=n_steps)
 
 
 def _aug_speed(y: np.ndarray, rng: np.random.Generator) -> np.ndarray:
+    # kept for TTA consistency (deterministic speed perturbation)
     return librosa.effects.time_stretch(y, rate=rng.uniform(0.9, 1.1))
 
 
@@ -80,7 +81,7 @@ def _extract_frames(df, data_dir: Path, augment: bool, seed: int):
         y_wav, sr = librosa.load(_find_wav(row["stem"], data_dir), sr=None, mono=True)
         wavs = [y_wav]
         if augment:
-            wavs += [_aug_noise(y_wav, rng), _aug_speed(y_wav, rng)]
+            wavs += [_aug_pitch(y_wav, sr, rng)]    # E025: pitch-only
         for y_aug in wavs:
             frames = _extract_features(y_aug, sr)
             all_X.append(frames)

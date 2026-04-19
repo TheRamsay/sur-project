@@ -215,7 +215,11 @@ logs/                   — runtime logs (gitignored)
 | E020 | audio | LPCC 13+Δ+ΔΔ + UBM+MAP | 3.33 ± 4.14 % | ✓ best audio mean EER + min-DCF → new audio flagship |
 | E021 | audio | PLP 13+Δ+ΔΔ (Bark+EL+cbrt) + UBM+MAP | 5.56 ± 2.58 % | ❌ Bark front-end too lossy; cube-root hurts GMM fitting |
 | E022 | audio | MFCC+LPCC score fusion | 3.33 ± 4.14 % | ↔ collapsed to LPCC alone (w=0.07); calibration asymmetry |
-| E023 | fusion | Platt calib + LPCC+image grid w=0.36 | **0.52 % OOF overall** | ← fusion flagship; −3.23pp vs E009 |
+| E023 | fusion | Platt calib + LPCC+image grid w=0.36 | 0.52 % OOF overall | superseded by E026/E027 |
+| E024 | audio | LPC order ablation ∈{8,10,12,14,16,20} | 3.33% @ order=12 | order=12 confirmed (≥2.5pp moat) |
+| E025 | audio | LPCC+Pitch augmentation | **1.94 ± 1.57 %** | ← new audio flagship; pitch uniquely helps LPCC (not MFCC) |
+| E026 | fusion | MFCC+LPCC+image grid (trimodal) | **0.26 % OOF overall** | halves E023 via residual MFCC complementarity |
+| E027 | fusion | MFCC+LPCC(+Pitch)+image grid | **0.26 % OOF overall** | ← fusion flagship; matches E026 but more robust audio backbone |
 
 ### EER: per-fold mean vs OOF overall (important distinction)
 
@@ -252,8 +256,11 @@ somewhere between these. Report both; do not cherry-pick the better number.
 - LPCC ✓: 3.33 ± 4.14% mean EER, min-DCF 0.0333 — best on both metrics. Fold errors complementary to E008 (fold0 LPCC fails, E008 wins; fold1 LPCC wins, E008 fails).
 - PLP ❌: Bark front-end too coarse for 20-band LPC; cube-root compression hurts GMM fitting.
 - LPCC+MFCC audio fusion (E022) ↔: global Platt calibration gave LPCC 2× dynamic range → grid search converged to w=0.07 (essentially LPCC alone). Fusion = LPCC alone result.
-- E023 LPCC+image fusion: **0.52% OOF EER** — −3.23pp vs E009 MFCC+image (3.75%). New fusion flagship.
-- **All experiments complete: 23 total. Flagships: audio=E020 LPCC, image=E007 PCA+LogReg+aug, fusion=E023 LPCC+image.**
+- E023 LPCC+image fusion: 0.52% OOF EER (−3.23pp vs E009). Superseded by trimodal.
+- E024: LPC order=12 confirmed (≥2.5pp moat over neighbors).
+- E025: **+Pitch augmentation uniquely helps LPCC** (hurt MFCC in E014). Because LPCC encodes formants directly, pitch shift is the right inductive bias. Std collapses 4.14→1.57.
+- E026/E027: trimodal fusion MFCC + LPCC + image halves E023 OOF EER: **0.26%**.
+- **All experiments complete: 27 total. Flagships: audio=E025 LPCC+Pitch, image=E007, fusion=E027 trimodal.**
 
 ---
 
@@ -289,4 +296,4 @@ This tells the story: baseline → UBM+MAP → augmentation → fusion.
 - [ ] Generate the 6 result files on eval data (2026-05-03 morning)
 - [ ] `dokumentace.pdf` — explain WHY for every design choice, ablation tables required
 
-### ✅ 23 experiments complete. Flagships locked: audio=LPCC (E020), image=PCA+aug (E007), fusion=LPCC+image (E023, 0.52% OOF EER).
+### ✅ 27 experiments complete. Flagships locked: audio=LPCC+Pitch (E025, 1.94% per-fold mean), image=PCA+aug (E007, 0.97%), fusion=trimodal (E027, 0.26% OOF EER).
