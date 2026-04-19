@@ -198,6 +198,7 @@ logs/                   — runtime logs (gitignored)
 | E005 | image | LBP 4×4 + LogReg | 17.78 ± 23.58 % ❌ fold 2 collapse |
 | E006 | image | PCA 100 + LDA shrinkage=auto | 18.24 ± 1.53 % ❌ 1D bottleneck |
 | E007 | image | PCA 50 + LogReg + aug (flip+brightness+noise) | **0.97 ± 0.86 %** ← image flagship |
+| E008 | audio | UBM+MAP + aug (noise+speed) | **4.21 ± 3.11 %** ← audio flagship |
 
 **Key findings so far:**
 - Deltas (+Δ+ΔΔ) gave −7.83% EER on audio and cut variance dramatically — always use them.
@@ -215,16 +216,10 @@ logs/                   — runtime logs (gitignored)
 - [x] Data exploration notebook
 - [x] `src/data/splits.py` — LOSO splitter, group-aware
 - [x] `src/eval/metrics.py` — EER, min-DCF, hard decisions
-- [x] Audio E001–E003 (MFCC→GMM→UBM+MAP, flagship=E003)
-- [x] Image E004–E007 (PCA+logreg+augmentation wins, flagship=E007)
-- [ ] Score calibration (Platt on OOF) — image threshold far from 0, needed before fusion
-- [ ] E007: Score-level fusion (calibrated audio E003 + image E004 OOF → logreg)
-- [ ] Audio augmentation ablation (noise, speed, pitch) — after fusion baseline
-- [ ] Production scripts: `predict_audio.py`, `predict_image.py`, `predict_fusion.py`
-- [ ] Self-test mini-eval set (mandatory before submission)
-- [ ] `dokumentace.pdf` — write as experiments land
-- [ ] Fusion E007: score-level weighted sum / logreg on OOF scores
-- [ ] Audio augmentation ablation (noise, speed, pitch) — do after fusion baseline
+- [x] Audio E001–E008 (UBM+MAP+aug, flagship=E008, EER 4.21%)
+- [x] Image E004–E007 (PCA+logreg+aug, flagship=E007, EER 0.97%)
+- [ ] Score calibration (Platt on OOF) — image threshold ≈ −5, needed before fusion
+- [ ] E009: Score-level fusion (calibrated E008 audio + E007 image OOF → logreg)
 - [ ] Production scripts: `predict_audio.py`, `predict_image.py`, `predict_fusion.py`
 - [ ] Self-test mini-eval set (mandatory before submission)
 - [ ] `dokumentace.pdf` — write section by section as experiments land
