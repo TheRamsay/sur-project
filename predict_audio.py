@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+"""
+E008 audio system: UBM-MAP + MFCC 13+Δ+ΔΔ + noise/speed augmentation.
+
+Usage:
+    uv run predict_audio.py --eval-dir /path/to/eval --output results/audio_ubm_map.txt
+"""
+import argparse
+import copy
+from pathlib import Path
+
+import librosa
+import numpy as np
+from scipy.special import logsumexp
+from sklearn.linear_model import LogisticRegression
+from sklearn.mixture import GaussianMixture
+
+from src.data.splits import load_manifest, iter_folds_loso
+from src.eval.metrics import compute_min_dcf
+
+SEED = 67
+UBM_COMPONENTS = 32
+MAP_R = 16.0
+SNR_DB = 20.0
+
+
+# ---------------------------------------------------------------------------
+# Features
+# ---------------------------------------------------------------------------
+
+def _find_wav(stem: str, data_dir: Path) -> Path:
+    for sf in ("target_train", "target_dev", "non_target_train", "non_target_dev"):
+        p = data_dir / sf / (stem + ".wav")
+        if p.exists():
+            return p
+    raise FileNotFoundError(stem)
+
+
+def _extract_mfcc(y: np.ndarray, sr: int) -> np.ndarray:
+    mfcc   = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
+    delta  = librosa.feature.delta(mfcc)
+    delta2 = librosa.feature.delta(mfcc, order=2)
+    mfcc   = np.vstack([mfcc, delta, delta2]).T
+    mfcc  -= mfcc.mean(axis=0)
+    return mfcc
+
+
+def _aug_noise(y: np.ndarray, rng: np.random.Generator) -> np.ndarray:
+    power = np.mean(y ** 2) + 1e-10
+    noise = rng.normal(0, np.sqrt(power / 10 ** (SNR_DB / 10)), len(y))
+    return (y + noise.astype(y.dtype))
+
+
+def _aug_speed(y: np.ndarray, rng: np.random.Generator) -> np.ndarray:
+    return librosa.effects.time_stretch(y, rate=rng.uniform(0.9, 1.1))
+
+
+def _extract_frames(df, data_dir: Path, augment: bool, seed: int):
+    rng = np.random.default_rng(seed)
+    all_X, all_y = [], []
+    for _, row in df.iterrows():
+        y_wav, sr = librosa.load(_find_wav(row["stem"], data_dir), sr=None, mono=True)
+        wavs = [y_wav]
+        if augment:
+            wavs += [_aug_noise(y_wav, rng), _aug_speed(y_wav, rng)]
+        for y_aug in wavs:
+            frames = _extract_mfcc(y_aug, sr)
+            all_X.append(frames)
+            all_y.extend([row["label"]] * len(frames))
+    return np.vstack(all_X), np.array(all_y)
+
+
+def _score_wav(wav_path: Path, adapted: GaussianMixture, ubm: GaussianMixture) -> float:
+    y, sr = librosa.load(wav_path, sr=None, mono=True)
+    mfcc  = _extract_mfcc(y, sr)
+    return float((adapted.score_samples(mfcc) - ubm.score_samples(mfcc)).mean())
+
+
+# ---------------------------------------------------------------------------
+# Model
+# ---------------------------------------------------------------------------
+
+def _train_ubm(X: np.ndarray) -> GaussianMixture:
+    return GaussianMixture(n_components=UBM_COMPONENTS, covariance_type="diag",
+                           max_iter=200, random_state=SEED).fit(X)
+
+
+def _map_adapt(ubm: GaussianMixture, X_target: np.ndarray) -> GaussianMixture:
+    log_resp  = ubm._estimate_log_prob(X_target) + np.log(ubm.weights_)
+    log_resp -= logsumexp(log_resp, axis=1, keepdims=True)
+    resp      = np.exp(log_resp)
+    n_k       = resp.sum(axis=0)
+    mu_hat    = (resp.T @ X_target) / (n_k[:, None] + 1e-10)
+    alpha     = n_k / (n_k + MAP_R)
+    adapted   = copy.deepcopy(ubm)
+    adapted.means_ = alpha[:, None] * mu_hat + (1 - alpha[:, None]) * ubm.means_
+    return adapted
+
+
+def _train(df, data_dir: Path, augment: bool, seed: int):
+    X, y = _extract_frames(df, data_dir, augment=augment, seed=seed)
+    ubm     = _train_ubm(X[y == 0])
+    adapted = _map_adapt(ubm, X[y == 1])
+    return ubm, adapted
+
+
+# ---------------------------------------------------------------------------
+# Calibration via OOF
+# ---------------------------------------------------------------------------
+
+def _collect_oof(manifest, data_dir: Path) -> np.ndarray:
+    oof = np.full(len(manifest), np.nan)
+    for fold_id, train_idx, val_idx in iter_folds_loso(manifest, seed=SEED):
+        ubm, adapted = _train(manifest.loc[train_idx], data_dir,
+                              augment=True, seed=SEED + fold_id)
+        for idx, row in manifest.loc[val_idx].iterrows():
+            oof[idx] = _score_wav(_find_wav(row["stem"], data_dir), adapted, ubm)
+    return oof
+
+
+def _fit_calibrator(oof_scores: np.ndarray, labels: np.ndarray) -> LogisticRegression:
+    cal = LogisticRegression(C=1e6, max_iter=1000, class_weight="balanced")
+    cal.fit(oof_scores.reshape(-1, 1), labels)
+    return cal
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data-dir",  default="data",           type=Path)
+    parser.add_argument("--eval-dir",  required=True,             type=Path)
+    parser.add_argument("--output",    default="results/audio_ubm_map.txt", type=Path)
+    args = parser.parse_args()
+
+    data_dir = args.data_dir.resolve()
+    eval_dir = args.eval_dir.resolve()
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+
+    manifest = load_manifest(data_dir)
+    y_all    = manifest["label"].to_numpy()
+
+    print("Collecting OOF scores for calibration…")
+    oof_raw = _collect_oof(manifest, data_dir)
+
+    print("Fitting Platt calibrator…")
+    cal = _fit_calibrator(oof_raw, y_all)
+    oof_cal = cal.decision_function(oof_raw.reshape(-1, 1))
+    _, threshold = compute_min_dcf(oof_cal[y_all == 1], oof_cal[y_all == 0])
+    print(f"  Threshold (min-DCF on OOF): {threshold:.4f}")
+
+    print("Retraining on all data…")
+    ubm, adapted = _train(manifest, data_dir, augment=True, seed=SEED)
+
+    print(f"Scoring eval data in {eval_dir} …")
+    wavs = sorted(eval_dir.glob("*.wav"))
+    if not wavs:
+        raise RuntimeError(f"No .wav files found in {eval_dir}")
+
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    with open(args.output, "w") as f:
+        for wav in wavs:
+            raw   = _score_wav(wav, adapted, ubm)
+            score = float(cal.decision_function([[raw]])[0])
+            hard  = 1 if score >= threshold else 0
+            f.write(f"{wav.stem} {score:.6f} {hard}\n")
+
+    print(f"Written {len(wavs)} lines → {args.output}")
+
+
+if __name__ == "__main__":
+    main()
