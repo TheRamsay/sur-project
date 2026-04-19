@@ -187,39 +187,84 @@ logs/                   — runtime logs (gitignored)
 
 ---
 
-## 7. Empirical findings (updated as experiments land)
+## 7. Empirical findings
 
-| Exp | Modality | Model | EER mean±std |
-|-----|----------|-------|--------------|
-| E001 | audio | MFCC 13 + GMM | 17.92 ± 7.81 % |
-| E002 | audio | MFCC 13+Δ+ΔΔ + GMM | 10.09 ± 1.81 % |
-| E003 | audio | UBM 32 + MAP r=16, MFCC+Δ+ΔΔ | **7.45 ± 5.04 %** ← audio flagship |
-| E004 | image | PCA 50 + LogReg | **4.49 ± 4.26 %** ← image flagship |
-| E005 | image | LBP 4×4 + LogReg | 17.78 ± 23.58 % ❌ fold 2 collapse |
-| E006 | image | PCA 100 + LDA shrinkage=auto | 18.24 ± 1.53 % ❌ 1D bottleneck |
-| E007 | image | PCA 50 + LogReg + aug (flip+brightness+noise) | **0.97 ± 0.86 %** ← image flagship |
-| E008 | audio | UBM+MAP + aug (noise+speed) | **4.21 ± 3.11 %** ← audio flagship |
+### Experiment progression
 
-**Key findings so far:**
-- Deltas (+Δ+ΔΔ) gave −7.83% EER on audio and cut variance dramatically — always use them.
-- Image beats audio: faces are very distinctive in PCA space for this person.
-- LBP failed: session pose/lighting shift kills texture features. PCA global structure more stable.
-- LDA collapses to 1D for binary — with 20 target samples this loses badly vs logreg in 50D.
-- UBM+MAP threshold ≈ 0 (calibrated). Image logreg threshold ≈ −5 (needs calibration before fusion).
-- Large fold std is expected with 3 LOSO folds — report it, never hide it.
+| Exp | Modality | Model | CV EER mean±std | Notes |
+|-----|----------|-------|-----------------|-------|
+| E001 | audio | MFCC 13 + GMM | 17.92 ± 7.81 % | anchor |
+| E002 | audio | MFCC 13+Δ+ΔΔ + GMM | 10.09 ± 1.81 % | deltas: −7.83% |
+| E003 | audio | UBM 32 + MAP r=16, MFCC+Δ+ΔΔ | 7.45 ± 5.04 % | |
+| E004 | image | PCA 50 + LogReg | 4.49 ± 4.26 % | anchor |
+| E005 | image | LBP 4×4 + LogReg | 17.78 ± 23.58 % | ❌ fold 2 collapse |
+| E006 | image | PCA 100 + LDA shrinkage=auto | 18.24 ± 1.53 % | ❌ 1D bottleneck |
+| E007 | image | PCA 50 + LogReg + aug (+All) | **0.97 ± 0.86 %** | ← image flagship |
+| E008 | audio | UBM+MAP + aug (+All) | **4.21 ± 3.11 %** | ← audio flagship |
+| E009 | fusion | Platt calib + grid w=0.28 | **3.75 % OOF overall** | ← fusion flagship |
+
+### EER: per-fold mean vs OOF overall (important distinction)
+
+Per-fold mean and OOF overall EER are different numbers and mean different things:
+
+| System | Per-fold mean | OOF overall |
+|--------|--------------|-------------|
+| Image E007 | 0.97% | ~10% |
+| Audio E008 | 4.21% | ~9% |
+| Fusion E009 | — | 3.75% |
+
+**Per-fold mean** = average of 3 separate evaluations, each on its own session context.
+**OOF overall** = all 222 samples evaluated at once, mixing 3 different fold models.
+The production script retrains on all data (a 4th model) — eval performance will be
+somewhere between these. Report both; do not cherry-pick the better number.
+
+### Key findings
+- Deltas (+Δ+ΔΔ): −7.83% EER, variance collapse — always use them for audio.
+- Image beats audio in CV: PCA captures Ondra's global appearance well.
+- **Risk**: 0.97% image EER may be optimistic — eval has new sessions + Burget's degradations.
+- LBP ❌: session-to-session appearance shift killed texture features.
+- LDA ❌: 1D bottleneck with 20 target samples loses to logreg in 50D.
+- Brightness jitter was the key image augmentation (session lighting is the main variation).
+- Speed perturbation was the key audio augmentation (speaking rate varies across sessions).
+- Fusion (w=0.28 audio, w=0.72 image) beats both modalities — complementary signal.
+- Calibration: image threshold after Platt = −0.07 (good), audio = −0.41 (imperfect).
+  The imbalance (30 target / 192 non-target) makes perfect calibration hard with few samples.
 
 ---
 
-## 8. What to build next (living TODO)
+## 8. Submission strategy (6 result files)
+
+Burget scores up to 6 files. Use the slots to show ablation progression:
+
+| File | Experiment | Purpose |
+|------|-----------|---------|
+| `audio_gmm_baseline.txt` | E001 | Audio anchor (lecture baseline) |
+| `audio_ubm_map_aug.txt` | E008 | Audio flagship |
+| `image_pca_logreg_baseline.txt` | E004 | Image anchor (no aug) |
+| `image_pca_logreg_aug.txt` | E007 | Image flagship |
+| `fusion_score.txt` | E009 | Fusion flagship |
+| `audio_ubm_map_noaug.txt` | E003 | Audio ablation (shows aug contribution) |
+
+This tells the story: baseline → UBM+MAP → augmentation → fusion.
+
+---
+
+## 9. What to build next (living TODO)
 
 - [x] Project skeleton + deps
 - [x] Data exploration notebook
 - [x] `src/data/splits.py` — LOSO splitter, group-aware
 - [x] `src/eval/metrics.py` — EER, min-DCF, hard decisions
-- [x] Audio E001–E008 (UBM+MAP+aug, flagship=E008, EER 4.21%)
-- [x] Image E004–E007 (PCA+logreg+aug, flagship=E007, EER 0.97%)
-- [ ] Score calibration (Platt on OOF) — image threshold ≈ −5, needed before fusion
-- [ ] E009: Score-level fusion (calibrated E008 audio + E007 image OOF → logreg)
-- [ ] Production scripts: `predict_audio.py`, `predict_image.py`, `predict_fusion.py`
-- [ ] Self-test mini-eval set (mandatory before submission)
-- [ ] `dokumentace.pdf` — write section by section as experiments land
+- [x] Audio E001–E008 (UBM+MAP+aug, flagship=E008)
+- [x] Image E004–E007 (PCA+logreg+aug, flagship=E007)
+- [x] Score calibration (Platt + class_weight='balanced' on OOF)
+- [x] E009 score-level fusion (grid search w=0.28)
+- [x] Production scripts (`predict_audio.py`, `predict_image.py`, `predict_fusion.py`)
+- [ ] Self-test mini-eval set — **mandatory before submission** (Burget: "people send files with scores scrambled")
+- [ ] Generate the 6 result files on eval data (2026-05-03 morning)
+- [ ] `dokumentace.pdf` — explain WHY for every design choice, ablation tables required
+
+### Optional improvements still on table
+- **TTA (test-time augmentation)**: average scores over original + augmented eval samples. Could help on degraded data. Implement in predict scripts.
+- **More UBM components**: 32 → 64. Quick ablation, might close audio gap.
+- **PCA n_components sweep** for image: properly ablate 20/30/50/75 instead of defaulting to 50.
