@@ -18,3 +18,4 @@ numbers live in each `EXXX_*.md` — this table is just for scanning.
 | E011 | image-pca-sweep | image | PCA sweep n∈{20,30,50,75,100,150} + LogReg + +All aug | 0.97 ± 0.86 (n=50) | 0.0194 | n=50 confirmed optimal; <30 underfit, ≥75 plateau at 1.25% EER |
 | E012 | audio-cmvn | audio | UBM 32 + MAP r=16, MFCC 13+Δ+ΔΔ, CMVN (+All aug) | 6.16 ± 3.78 | 0.0796 | regression vs E008 CMN (4.21%); CMVN removes speaker-discriminative variance |
 | E013 | audio-map-r-ablation | audio | UBM 32 + MAP r∈{4,8,16,32,64}, +All aug | 4.21 ± 3.11 (r≤16) | 0.0509 | flat plateau r∈{4,8,16}; r=32 regresses; r=16 confirmed as default |
+| E014 | audio-new-aug-ablation | audio | UBM 32 + MAP r=16, +All + new augs (codec/lownoise/pitch/clip/allnew) | 4.21 ± 3.11 (+All E008 wins) | 0.0509 | none of the 4 new augs beat E008 +All; +Codec closest (4.81%); +LowNoise worst (7.59%) |
