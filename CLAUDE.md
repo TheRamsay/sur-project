@@ -220,6 +220,8 @@ logs/                   — runtime logs (gitignored)
 | E025 | audio | LPCC+Pitch augmentation | **1.94 ± 1.57 %** | ← new audio flagship; pitch uniquely helps LPCC (not MFCC) |
 | E026 | fusion | MFCC+LPCC+image grid (trimodal) | **0.26 % OOF overall** | halves E023 via residual MFCC complementarity |
 | E027 | fusion | MFCC+LPCC(+Pitch)+image grid | **0.26 % OOF overall** | ← fusion flagship; matches E026 but more robust audio backbone |
+| E028 | image | stress test (jpeg/blur/rotate/occlude/all) at val | 0.97→1.25/1.71/7.31/18.10/26.16% | robust to photometric, brittle to geometric |
+| E029 | validity | permutation test (shuffle train labels) | image 49.49%, audio 55.26% | both pass — no hidden leakage |
 
 ### EER: per-fold mean vs OOF overall (important distinction)
 
@@ -260,7 +262,9 @@ somewhere between these. Report both; do not cherry-pick the better number.
 - E024: LPC order=12 confirmed (≥2.5pp moat over neighbors).
 - E025: **+Pitch augmentation uniquely helps LPCC** (hurt MFCC in E014). Because LPCC encodes formants directly, pitch shift is the right inductive bias. Std collapses 4.14→1.57.
 - E026/E027: trimodal fusion MFCC + LPCC + image halves E023 OOF EER: **0.26%**.
-- **All experiments complete: 27 total. Flagships: audio=E025 LPCC+Pitch, image=E007, fusion=E027 trimodal.**
+- E028 stress test: image robust to photometric degradations (JPEG q=15: 1.25%, blur σ=3: 1.71%) but brittle to geometric (rotation ±15°: 7.3%, occlusion: 18%). If Burget uses photometric-only, 0.97% holds.
+- E029 permutation test: PASS. Shuffling train labels → permuted EER 49.5% (image) and 55.3% (audio). No hidden leak — models learn from labels, not auxiliary channels.
+- **All experiments complete: 29 total. Flagships: audio=E025 LPCC+Pitch, image=E007, fusion=E027 trimodal.**
 
 ---
 
