@@ -53,3 +53,4 @@ numbers live in each `EXXX_*.md` — this table is just for scanning.
 | E046 | fusion-product-rule | fusion | E042+E043 backbones + product rule (geometric mean) | 0.52 (OOF) | 0.0104 | ✓✓✓ NEW FUSION FLAGSHIP; -2.45pp vs weighted sum (2.97%→0.52%); product rule > weighted sum; weight-free!; ADOPTED |
 | E047 | vtln-failure | audio | E042 + VTLN warping (α∈[0.9,1.1]) | 31.45 (catastrophic) | — | ❌ VTLN implementation broken (warps cepstral coeffs, not mel filters); +31pp vs E042; REJECTED |
 | E048 | fusion-backbone-sweep | fusion | Bimodal product rule (audio+image) with E042/E043 backbones | 4.59 (bimodal) | 0.0459 | ❌ bimodal product rule ≪ trimodal (4.59% vs 0.52%); E046 trimodal optimal; REJECTED |
+| E049 | image-tta-expansion | image | E043 + more TTA views (rot7/rot9/bright/noise) | 4.38 (replication fails) | — | ❌ E043 baseline not replicated (4.38% vs 0.74%); implementation mismatch; REJECTED |
