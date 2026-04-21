@@ -26,13 +26,15 @@ venv/
 
 # Cached features / heavy artifacts (reproducible from code)
 cache/
-results/*.npy
-results/*.pkl
-results/*.joblib
+results/
 logs/
+
+# Generated synthetic eval data
+eval_synthetic/
 
 # OS / editor
 .DS_Store
 .vscode/
 .idea/
 *.swp
+.env

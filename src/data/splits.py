@@ -1,5 +1,6 @@
-from pathlib import Path
 import re
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -9,10 +10,10 @@ NAME_RE = re.compile(
 )
 
 _FOLDERS = {
-    "target_train":     1,
-    "target_dev":       1,
+    "target_train": 1,
+    "target_dev": 1,
     "non_target_train": 0,
-    "non_target_dev":   0,
+    "non_target_dev": 0,
 }
 
 
@@ -44,7 +45,7 @@ def _assign_folds(df: pd.DataFrame, n_splits: int, seed: int) -> pd.Series:
     return df["group"].map(fold_of_group)
 
 
-def iter_folds(df: pd.DataFrame, n_splits: int = 3, seed: int = 0):
+def iter_folds(df: pd.DataFrame, n_splits: int = 3, seed: int = 67):
     """Yield (fold_id, train_idx, val_idx) for each fold.
 
     Groups (target by session, non-target by identity) are never split
@@ -58,7 +59,7 @@ def iter_folds(df: pd.DataFrame, n_splits: int = 3, seed: int = 0):
         yield fold_id, train_idx, val_idx
 
 
-def iter_folds_loso(df: pd.DataFrame, seed: int = 0):
+def iter_folds_loso(df: pd.DataFrame, seed: int = 67):
     """Leave-One-Session-Out on the target person.
 
     Number of folds equals number of unique target sessions (3 for m431).
@@ -74,9 +75,8 @@ def iter_folds_loso(df: pd.DataFrame, seed: int = 0):
     nt_fold = {spk: i % n_splits for i, spk in enumerate(nt_speakers)}
 
     for fold_id, session in enumerate(target_sessions):
-        val_mask = (
-            ((df["label"] == 1) & (df["session_id"] == session)) |
-            ((df["label"] == 0) & (df["identity"].map(nt_fold) == fold_id))
+        val_mask = ((df["label"] == 1) & (df["session_id"] == session)) | (
+            (df["label"] == 0) & (df["identity"].map(nt_fold) == fold_id)
         )
         val_idx = df.index[val_mask].to_numpy()
         train_idx = df.index[~val_mask].to_numpy()

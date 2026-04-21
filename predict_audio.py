@@ -89,21 +89,21 @@ def _extract_frames(df, data_dir: Path, augment: bool, seed: int):
     return np.vstack(all_X), np.array(all_y)
 
 
-def _score_wav(wav_path: Path, adapted: GaussianMixture, ubm: GaussianMixture) -> float:
-    y, sr = librosa.load(wav_path, sr=None, mono=True)
-    mfcc  = _extract_features(y, sr)
-    return float((adapted.score_samples(mfcc) - ubm.score_samples(mfcc)).mean())
+def _llr(y: np.ndarray, sr: int, adapted: GaussianMixture, ubm: GaussianMixture) -> float:
+    f = _extract_features(y, sr)
+    return float((adapted.score_samples(f) - ubm.score_samples(f)).mean())
 
 
 def _score_wav_tta(wav_path: Path, adapted: GaussianMixture, ubm: GaussianMixture) -> float:
-    """TTA: average original + one speed-perturbed score (fixed seed → deterministic)."""
+    """E031 +speed_tta: average LLR over original + 0.9× + 1.1× speed (3 views).
+    Speed perturbation is pitch-preserving → LPCC formant coefficients unchanged.
+    Pitch TTA hurts (corrupts formant structure); speed TTA is safe.
+    """
     y, sr = librosa.load(wav_path, sr=None, mono=True)
-    score_orig = float((adapted.score_samples(_extract_features(y, sr))
-                        - ubm.score_samples(_extract_features(y, sr))).mean())
-    y_tta = _aug_speed(y, np.random.default_rng(0))
-    score_tta  = float((adapted.score_samples(_extract_features(y_tta, sr))
-                        - ubm.score_samples(_extract_features(y_tta, sr))).mean())
-    return (score_orig + score_tta) / 2
+    views = [y,
+             librosa.effects.time_stretch(y, rate=0.9),
+             librosa.effects.time_stretch(y, rate=1.1)]
+    return float(np.mean([_llr(v, sr, adapted, ubm) for v in views]))
 
 
 # ---------------------------------------------------------------------------
@@ -144,7 +144,7 @@ def _collect_oof(manifest, data_dir: Path) -> np.ndarray:
         ubm, adapted = _train(manifest.loc[train_idx], data_dir,
                               augment=True, seed=SEED + fold_id)
         for idx, row in manifest.loc[val_idx].iterrows():
-            oof[idx] = _score_wav(_find_wav(row["stem"], data_dir), adapted, ubm)
+            oof[idx] = _score_wav_tta(_find_wav(row["stem"], data_dir), adapted, ubm)
     return oof
 
 

@@ -163,10 +163,18 @@ def _score_mfcc(wav_path, adapted, ubm):
     return float((adapted.score_samples(f) - ubm.score_samples(f)).mean())
 
 
-def _score_lpcc(wav_path, adapted, ubm):
-    y, sr = librosa.load(wav_path, sr=None, mono=True)
-    f     = _extract_lpcc(y, sr)
+def _llr_lpcc(y, sr, adapted, ubm):
+    f = _extract_lpcc(y, sr)
     return float((adapted.score_samples(f) - ubm.score_samples(f)).mean())
+
+
+def _score_lpcc(wav_path, adapted, ubm):
+    """E031 +speed_tta: average LLR over original + 0.9× + 1.1× speed (3 views)."""
+    y, sr = librosa.load(wav_path, sr=None, mono=True)
+    views = [y,
+             librosa.effects.time_stretch(y, rate=0.9),
+             librosa.effects.time_stretch(y, rate=1.1)]
+    return float(np.mean([_llr_lpcc(v, sr, adapted, ubm) for v in views]))
 
 
 # ---------------------------------------------------------------------------
