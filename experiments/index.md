@@ -46,3 +46,5 @@ numbers live in each `EXXX_*.md` — this table is just for scanning.
 | E039 | fusion-new-backbones | fusion | E037 (tied) + E033 (adv) + MFCC, Platt + grid | 0.26 (OOF, 0 errors) | 0.0052 | ✓✓ new fusion flagship; matches E027 (0.26%) but 0 errors, better weight balance (img=0.66, lpcc=0.34, mfcc=0.00); MFCC redundant; ADOPTED |
 | E040 | lr-regularization | image | E033 + LogReg C sweep (0.1/1.0/10.0/100.0) + L1 | 0.97 ± 0.86 (C=0.1/1.0) | 0.0194 | ↔ C=0.1 ties C=1.0; C>10 catastrophically fails; L1 terrible (13.52%); C=1.0 confirmed optimal; no change |
 | E041 | histogram-equalization | image | E033 + HE/CLAHE preprocessing | 0.97 ± 0.86 (raw) | 0.0194 | ❌ HE/CLAHE triple EER (3.01% vs 0.97%); CLAHE+aug catastrophic (5.60%); raw pixels optimal; not adopted |
+| E042 | speed-tta-tied-cov | audio | E037 tied cov + speed TTA (3 views) | 0.46 ± 0.65 | 0.0092 | ✓ new audio flagship; -0.23pp vs E037 (0.69%→0.46%); fold 0 improves (2.08%→1.39%); ADOPTED |
+| E043 | image-tta-flip-rot5 | image | E033 + TTA (flip + rot -5/0/+5, 5 views) | 0.74 ± 0.57 | 0.0148 | ✓ new image flagship; -0.23pp vs E033 (0.97%→0.74%); flip-only hurts; small rotations work; ADOPTED |
