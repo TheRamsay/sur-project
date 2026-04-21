@@ -222,6 +222,8 @@ logs/                   — runtime logs (gitignored)
 | E027 | fusion | MFCC+LPCC(+Pitch)+image grid | **0.26 % OOF overall** | ← fusion flagship; matches E026 but more robust audio backbone |
 | E028 | image | stress test (jpeg/blur/rotate/occlude/all) at val | 0.97→1.25/1.71/7.31/18.10/26.16% | robust to photometric, brittle to geometric |
 | E029 | validity | permutation test (shuffle train labels) | image 49.49%, audio 55.26% | both pass — no hidden leakage |
+| E030 | image | TTA rotation at inference (avg log-odds over −20°/−10°/0°/+10°/+20°) | clean: 1.25% (↑0.28pp vs E007) | ❌ TTA hurts clean, worsens all-combined; only rot±25° improves; geometric brittleness is fundamental to PCA |
+| E031 | audio | LPCC+Pitch val-time TTA: baseline/+pitch_tta(5 views)/+speed_tta(3 views)/+pitch_speed_tta(7 views) | **1.67 ± 1.80 %** (+speed_tta wins) | ✓ speed TTA −0.27pp EER −0.56pp min-DCF; +pitch_tta collapses fold0 to 9.86% (formant corruption); adopted in predict_audio.py + predict_fusion.py |
 
 ### EER: per-fold mean vs OOF overall (important distinction)
 
@@ -230,8 +232,8 @@ Per-fold mean and OOF overall EER are different numbers and mean different thing
 | Flagship | Per-fold mean | OOF overall |
 |----------|--------------|-------------|
 | Image E007 | 0.97 ± 0.86% | ~4% |
-| Audio E025 LPCC+Pitch | 1.94 ± 1.57% | ~4% |
-| Fusion E027 trimodal | — | **0.26%** |
+| Audio E025+E031 LPCC+Pitch+speedTTA | 1.67 ± 1.80% | ~4% |
+| Fusion E027+E031 trimodal | — | **0.26%** |
 
 **Per-fold mean** = average of 3 separate evaluations, each on its own session context.
 **OOF overall** = all 222 samples evaluated at once, mixing 3 different fold models.
@@ -264,7 +266,9 @@ somewhere between these. Report both; do not cherry-pick the better number.
 - E026/E027: trimodal fusion MFCC + LPCC + image halves E023 OOF EER: **0.26%**.
 - E028 stress test: image robust to photometric degradations (JPEG q=15: 1.25%, blur σ=3: 1.71%) but brittle to geometric (rotation ±15°: 7.3%, occlusion: 18%). If Burget uses photometric-only, 0.97% holds.
 - E029 permutation test: PASS. Shuffling train labels → permuted EER 49.5% (image) and 55.3% (audio). No hidden leak — models learn from labels, not auxiliary channels.
-- **All experiments complete: 29 total. Flagships: audio=E025 LPCC+Pitch, image=E007, fusion=E027 trimodal.**
+- E030 TTA rotation ❌: averaging log-odds over ±20°/±10°/0° rotations hurts clean EER (0.97→1.25%) and all-combined stress (+4.31pp). Geometric brittleness is fundamental to PCA eigenfaces; no inference-time fix exists without retraining. Flip-only TTA in predict_image.py stays.
+- E031 audio val-time TTA ✓: +speed_tta (original + 0.9× + 1.1×, 3 views) improves LPCC EER 1.94→1.67%, min-DCF 0.0389→0.0333. +pitch_tta collapses fold 0 to 9.86% — pitch shift corrupts LPCC formant coefficients more than UBM score. Speed TTA adopted in predict_audio.py and predict_fusion.py.
+- **All experiments complete: 31 total. Flagships: audio=E025+speedTTA (1.67%), image=E007 (0.97%), fusion=E027+speedTTA.**
 
 ---
 
@@ -276,7 +280,7 @@ Burget scores up to 6 files. Use the slots to show ablation progression:
 |------|-----------|---------|
 | `audio_mfcc_gmm_baseline.txt` | E001 | Audio anchor (lecture baseline), 17.92% |
 | `audio_mfcc_ubm_map_aug.txt` | E008 | MFCC flagship, 4.21%, shows UBM+MAP+aug contribution |
-| `audio_lpcc_pitch.txt` | E025 | **Audio flagship**, 1.94%, LPCC+Pitch |
+| `audio_lpcc_pitch.txt` | E025+E031 | **Audio flagship**, 1.67%, LPCC+Pitch+speedTTA |
 | `image_pca_baseline.txt` | E004 | Image anchor (no aug), 4.49% |
 | `image_pca_aug.txt` | E007 | **Image flagship**, 0.97%, PCA+LogReg+aug |
 | `fusion_trimodal.txt` | E027 | **Fusion flagship**, 0.26% OOF, MFCC+LPCC+image |
@@ -291,13 +295,14 @@ Story: baseline → UBM+MAP → features (MFCC→LPCC) → augmentation → trim
 - [x] Data exploration notebook
 - [x] `src/data/splits.py` — LOSO splitter, group-aware
 - [x] `src/eval/metrics.py` — EER, min-DCF, hard decisions
-- [x] Audio E001–E027 (flagship=E025 LPCC+Pitch at 1.94% per-fold mean)
-- [x] Image E004–E015 (flagship=E007 PCA+LogReg+aug at 0.97%)
+- [x] Audio E001–E031 (flagship=E025+E031 LPCC+Pitch+speedTTA at 1.67% per-fold mean)
+- [x] Image E004–E015, E028, E030 (flagship=E007 PCA+LogReg+aug at 0.97%)
 - [x] Score calibration (Platt + class_weight='balanced' on OOF)
-- [x] Fusion E009/E023/E026/E027 (flagship=E027 trimodal at 0.26% OOF EER)
+- [x] Fusion E009/E023/E026/E027+E031 (flagship=E027+E031 trimodal at 0.26% OOF EER)
 - [x] Production scripts (`predict_audio.py`, `predict_image.py`, `predict_fusion.py`)
-- [x] Self-test mini-eval set (`self_test.py`) — validates format, stem integrity, score ordering
+- [x] Self-test mini-eval set (`self_test.py`) — validates format, stem integrity, score ordering — **PASSED** (all 3 scripts 10/10 format, score ordering correct)
+- [x] `notebooks/final_system.ipynb` — full system reproduction with final numbers
 - [ ] Generate the 6 result files on eval data (2026-05-03 morning)
 - [ ] `dokumentace.pdf` — explain WHY for every design choice, ablation tables required
 
-### ✅ 27 experiments complete. Flagships locked: audio=LPCC+Pitch (E025, 1.94% per-fold mean), image=PCA+aug (E007, 0.97%), fusion=trimodal (E027, 0.26% OOF EER).
+### ✅ 31 experiments complete. Flagships locked: audio=LPCC+Pitch+speedTTA (E025+E031, 1.67%), image=PCA+aug (E007, 0.97%), fusion=trimodal+speedTTA (E027+E031, 0.26% OOF EER). No further experiments planned.
