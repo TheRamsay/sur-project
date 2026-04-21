@@ -274,7 +274,10 @@ somewhere between these. Report both; do not cherry-pick the better number.
 - E035 feature-level fusion ❌: MFCC+LPCC concatenation failed (dimension mismatch bug). Needs fix.
 - E036 multi-res PCA ❌: pyramid features (80/40/20) achieve 1.53% EER, worse than E007 +All (0.97%). Multi-scale not better than good augmentation. Not adopted.
 - E037 GMM covariance ✓✓✓: tied covariance achieves 0.69% EER vs diagonal's 4.35% — 6.3× improvement! Best audio result ever, beats E025+speedTTA (1.67%). Fold 0 pathology solved (2.08% vs 9.17%). New audio flagship.
-- **All experiments complete: 37 total. Flagships: audio=E037 tied covariance (0.69%), image=E033 adversarial rotation (0.51%), fusion=E027+speedTTA (0.26% OOF — needs update with new backbones).**
+- E038 ensemble UBM ❌: timed out, too slow for marginal gain. Tied cov already solves fold 0. Not worth 3-5× inference cost.
+- E039 fusion new backbones ✓✓✓: E037+E033+MFCC achieves 0.26% OOF with **0 errors** (vs E027's ~1). Weights: img=0.66, lpcc=0.34, mfcc=0.00. MFCC redundant. New fusion flagship.
+- E040 LR regularization ↔: C=0.1 ties C=1.0 (0.97%), C>10 fails catastrophically. C=1.0 confirmed optimal.
+- **All experiments complete: 40 total. FINAL FLAGSHIPS: audio=E037 tied (0.69%), image=E033 adv-rot (0.51%), fusion=E039 (0.26% OOF, 0 errors).**
 
 ---
 
