@@ -50,3 +50,4 @@ numbers live in each `EXXX_*.md` — this table is just for scanning.
 | E043 | image-tta-flip-rot5 | image | E033 + TTA (flip + rot -5/0/+5, 5 views) | 0.74 ± 0.57 | 0.0148 | ✓ new image flagship; -0.23pp vs E033 (0.97%→0.74%); flip-only hurts; small rotations work; ADOPTED |
 | E044 | map-r-ablation-tied | audio | E042 tied cov + MAP r sweep (4/8/16/32/64) | 0.46 (r=16) | 0.0092 | ↔ r=16 confirmed optimal (same as diagonal); timed out but literature supports r=16; no change |
 | E045 | score-ensemble | audio | MFCC+LPCC+PLP calibrated averaging | 3.23 (ensemble) | — | ❌ ensemble regresses vs LPCC alone (3.23% vs 2.45%); calibration asymmetry; not adopted |
+| E046 | fusion-product-rule | fusion | E042+E043 backbones + product rule (geometric mean) | 0.52 (OOF) | 0.0104 | ✓✓✓ NEW FUSION FLAGSHIP; -2.45pp vs weighted sum (2.97%→0.52%); product rule > weighted sum; weight-free!; ADOPTED |
