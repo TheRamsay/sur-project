@@ -269,7 +269,12 @@ somewhere between these. Report both; do not cherry-pick the better number.
 - E030 TTA rotation ❌: averaging log-odds over ±20°/±10°/0° rotations hurts clean EER (0.97→1.25%) and all-combined stress (+4.31pp). Geometric brittleness is fundamental to PCA eigenfaces; no inference-time fix exists without retraining. Flip-only TTA in predict_image.py stays.
 - E031 audio val-time TTA ✓: +speed_tta (original + 0.9× + 1.1×, 3 views) improves LPCC EER 1.94→1.67%, min-DCF 0.0389→0.0333. +pitch_tta collapses fold 0 to 9.86% — pitch shift corrupts LPCC formant coefficients more than UBM score. Speed TTA adopted in predict_audio.py and predict_fusion.py.
 - E032 quality-aware fusion ❌: tested softmax/threshold/linear weighting based on image sharpness and audio SNR. All strategies achieve 0.78% OOF EER (matches E027 fixed weights). Quality metrics don't correlate with recognition difficulty on clean data. Not adopted.
-- **All experiments complete: 32 total. Flagships: audio=E025+speedTTA (1.67%), image=E007 (0.97%), fusion=E027+speedTTA.**
+- E033 adversarial image aug ✓✓: +AdvRot (adversarial rotation ±10°) achieves 0.51% EER vs E007's 0.97% — 2× improvement! Rotation robustness: rot15 EER 13.70% → 1.04% (13× better). New image flagship.
+- E034 Z-norm ❌: cohort-based score normalization, same EER (6.20%), better min-DCF. Dataset too small for effective cohort estimation. Not adopted.
+- E035 feature-level fusion ❌: MFCC+LPCC concatenation failed (dimension mismatch bug). Needs fix.
+- E036 multi-res PCA ❌: pyramid features (80/40/20) achieve 1.53% EER, worse than E007 +All (0.97%). Multi-scale not better than good augmentation. Not adopted.
+- E037 GMM covariance ✓✓✓: tied covariance achieves 0.69% EER vs diagonal's 4.35% — 6.3× improvement! Best audio result ever, beats E025+speedTTA (1.67%). Fold 0 pathology solved (2.08% vs 9.17%). New audio flagship.
+- **All experiments complete: 37 total. Flagships: audio=E037 tied covariance (0.69%), image=E033 adversarial rotation (0.51%), fusion=E027+speedTTA (0.26% OOF — needs update with new backbones).**
 
 ---
 
