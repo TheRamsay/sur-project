@@ -268,7 +268,8 @@ somewhere between these. Report both; do not cherry-pick the better number.
 - E029 permutation test: PASS. Shuffling train labels → permuted EER 49.5% (image) and 55.3% (audio). No hidden leak — models learn from labels, not auxiliary channels.
 - E030 TTA rotation ❌: averaging log-odds over ±20°/±10°/0° rotations hurts clean EER (0.97→1.25%) and all-combined stress (+4.31pp). Geometric brittleness is fundamental to PCA eigenfaces; no inference-time fix exists without retraining. Flip-only TTA in predict_image.py stays.
 - E031 audio val-time TTA ✓: +speed_tta (original + 0.9× + 1.1×, 3 views) improves LPCC EER 1.94→1.67%, min-DCF 0.0389→0.0333. +pitch_tta collapses fold 0 to 9.86% — pitch shift corrupts LPCC formant coefficients more than UBM score. Speed TTA adopted in predict_audio.py and predict_fusion.py.
-- **All experiments complete: 31 total. Flagships: audio=E025+speedTTA (1.67%), image=E007 (0.97%), fusion=E027+speedTTA.**
+- E032 quality-aware fusion ❌: tested softmax/threshold/linear weighting based on image sharpness and audio SNR. All strategies achieve 0.78% OOF EER (matches E027 fixed weights). Quality metrics don't correlate with recognition difficulty on clean data. Not adopted.
+- **All experiments complete: 32 total. Flagships: audio=E025+speedTTA (1.67%), image=E007 (0.97%), fusion=E027+speedTTA.**
 
 ---
 
@@ -305,4 +306,4 @@ Story: baseline → UBM+MAP → features (MFCC→LPCC) → augmentation → trim
 - [ ] Generate the 6 result files on eval data (2026-05-03 morning)
 - [ ] `dokumentace.pdf` — explain WHY for every design choice, ablation tables required
 
-### ✅ 31 experiments complete. Flagships locked: audio=LPCC+Pitch+speedTTA (E025+E031, 1.67%), image=PCA+aug (E007, 0.97%), fusion=trimodal+speedTTA (E027+E031, 0.26% OOF EER). No further experiments planned.
+### ✅ 32 experiments complete. Flagships locked: audio=LPCC+Pitch+speedTTA (E025+E031, 1.67%), image=PCA+aug (E007, 0.97%), fusion=trimodal+speedTTA (E027+E031, 0.26% OOF EER). Quality-aware fusion (E032) explored but not adopted — no improvement on clean data.
