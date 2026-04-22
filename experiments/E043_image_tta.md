@@ -37,10 +37,10 @@ Test-time augmentation with flip + small rotations (+/-5deg) will improve over E
 
 4. **Why flip alone fails:** The model wasn't trained to be flip-invariant (flip was used as augmentation, but the decision boundary may not be symmetric).
 
-5. **New image flagship:** E043 (flip+rot5 TTA) at 0.74% beats E033 (single) at 0.97%.
+5. ~~New image flagship: E043 at 0.74%~~ — **see E049 below.**
 
 ## Decision
 
-**ADOPTED.** E043 (flip + +/-5deg rotation TTA, 5 views) is the new image flagship at **0.74% EER**.
+**INVALIDATED by E049.** E049 failed to replicate this result (4.38% vs 0.74%) — the implementation is not reproducible. Additionally, the baseline used here (E033 single = 0.97%) was a degraded replication; E033's actual result is **0.51%**. E043's 0.74% is therefore worse than E033's 0.51%.
 
-Update `predict_image.py` to use 5-view TTA at inference.
+**E033 remains the image flagship at 0.51%.** Do not update predict_image.py based on this experiment.

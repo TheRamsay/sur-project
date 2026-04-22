@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """
-E025 audio system: UBM-MAP + LPCC 13+Δ+ΔΔ + pitch-shift augmentation.
+E052 audio system: UBM-MAP + LPCC 13+Δ+ΔΔ + tied covariance + pitch aug + codec aug + speed TTA.
 
-LPCC with pitch augmentation is the audio flagship on this dataset:
-EER 1.94±1.57% (E025) vs LPCC+NoiseSpeed 3.33±4.14% (E020) vs MFCC 4.21% (E008).
-LPCC encodes formants directly, so pitch perturbation is the right aug axis.
+Tied covariance (E037): 0.69% EER vs diagonal 4.35% — captures LPCC coefficient
+correlations without overfitting (1521 shared params vs 48k for full).
+Speed TTA (E042): 0.46% EER — averaging over 0.9×/1.0×/1.1× speed is pitch-preserving,
+so LPCC formant coefficients stay valid.
+Codec aug (E052): 0.46% clean / 3.33% codec (vs 13.33% without) — adding 8kHz-bandwidth
+copies of training audio forces LPCC to learn formants surviving low-pass filtering.
 
 Usage:
-    uv run predict_audio.py --eval-dir /path/to/eval --output results/audio_ubm_map.txt
+    uv run predict_audio.py --eval-dir /path/to/eval --output results/audio_lpcc_tied_speedtta.txt
 """
 import argparse
 import copy
@@ -69,9 +72,10 @@ def _aug_pitch(y: np.ndarray, sr: int, rng: np.random.Generator) -> np.ndarray:
     return librosa.effects.pitch_shift(y, sr=sr, n_steps=n_steps)
 
 
-def _aug_speed(y: np.ndarray, rng: np.random.Generator) -> np.ndarray:
-    # kept for TTA consistency (deterministic speed perturbation)
-    return librosa.effects.time_stretch(y, rate=rng.uniform(0.9, 1.1))
+def _aug_codec(y: np.ndarray, sr: int) -> np.ndarray:
+    """E052: simulate codec bandwidth loss (downsample to 8kHz and back)."""
+    y_down = librosa.resample(y, orig_sr=sr, target_sr=8000)
+    return librosa.resample(y_down, orig_sr=8000, target_sr=sr)
 
 
 def _extract_frames(df, data_dir: Path, augment: bool, seed: int):
@@ -81,7 +85,8 @@ def _extract_frames(df, data_dir: Path, augment: bool, seed: int):
         y_wav, sr = librosa.load(_find_wav(row["stem"], data_dir), sr=None, mono=True)
         wavs = [y_wav]
         if augment:
-            wavs += [_aug_pitch(y_wav, sr, rng)]    # E025: pitch-only
+            wavs += [_aug_pitch(y_wav, sr, rng),    # E025: pitch shift
+                     _aug_codec(y_wav, sr)]           # E052: codec bandwidth
         for y_aug in wavs:
             frames = _extract_features(y_aug, sr)
             all_X.append(frames)
@@ -111,7 +116,7 @@ def _score_wav_tta(wav_path: Path, adapted: GaussianMixture, ubm: GaussianMixtur
 # ---------------------------------------------------------------------------
 
 def _train_ubm(X: np.ndarray) -> GaussianMixture:
-    return GaussianMixture(n_components=UBM_COMPONENTS, covariance_type="diag",
+    return GaussianMixture(n_components=UBM_COMPONENTS, covariance_type="tied",
                            max_iter=200, random_state=SEED).fit(X)
 
 

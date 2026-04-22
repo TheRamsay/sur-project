@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-E027 trimodal fusion system: calibrated MFCC + LPCC+Pitch audio + image.
+E039 trimodal fusion: MFCC (diag) + LPCC-tied (E037) + Image-AdvRot (E033).
 
-Three streams:
-  - MFCC audio (E008 +NoiseSpeed aug): UBM-MAP, MFCC 13+Δ+ΔΔ+CMN
-  - LPCC audio (E025 +Pitch aug):       UBM-MAP, LPCC 13+Δ+ΔΔ+CMN (order=12)
-  - Image (E007 +All aug):              PCA 50 + LogReg
+E039: 0.26% OOF EER, 0/222 errors. Weights from grid search: img≈0.66, lpcc≈0.34, mfcc≈0.00.
+MFCC is redundant (weight→0) but kept so grid search can confirm this per run.
 
-Grid search on calibrated OOF finds optimal 3-way weights.
-E027 OOF EER: 0.26% (vs E023 bi-fusion 0.52%, E009 MFCC+image 3.75%).
+Backbones:
+  - MFCC  (E008): UBM-32 diagonal, +NoiseSpeed aug
+  - LPCC  (E037): UBM-32 tied covariance, +Pitch aug — tied cov 6.3× better than diag
+  - Image (E033): PCA-50 + LogReg + adversarial rotation (2-pass training)
 
 Usage:
-    uv run predict_fusion.py --eval-dir /path/to/eval --output results/fusion_score.txt
+    uv run predict_fusion.py --eval-dir /path/to/eval --output results/fusion_trimodal.txt
 """
 import argparse
 import copy
@@ -20,6 +20,7 @@ from pathlib import Path
 import librosa
 import numpy as np
 from PIL import Image
+from scipy.ndimage import rotate as nd_rotate
 from scipy.special import logsumexp
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
@@ -102,13 +103,18 @@ def _aug_pitch(y, sr, rng):
     n_steps = float(rng.choice([-2, -1, 1, 2]))
     return librosa.effects.pitch_shift(y, sr=sr, n_steps=n_steps)
 
+def _aug_codec(y, sr):
+    """E052: simulate codec bandwidth loss (downsample to 8kHz and back)."""
+    y_down = librosa.resample(y, orig_sr=sr, target_sr=8000)
+    return librosa.resample(y_down, orig_sr=8000, target_sr=sr)
+
 
 # ---------------------------------------------------------------------------
 # UBM-MAP (shared for both MFCC and LPCC)
 # ---------------------------------------------------------------------------
 
-def _train_ubm(X):
-    return GaussianMixture(n_components=UBM_COMPONENTS, covariance_type="diag",
+def _train_ubm(X, covariance_type="diag"):
+    return GaussianMixture(n_components=UBM_COMPONENTS, covariance_type=covariance_type,
                            max_iter=200, random_state=SEED).fit(X)
 
 def _map_adapt(ubm, X_target):
@@ -147,12 +153,13 @@ def _train_lpcc(df, data_dir, augment, seed):
         y_wav, sr = librosa.load(_find_wav(row["stem"], data_dir), sr=None, mono=True)
         wavs = [y_wav]
         if augment:
-            wavs += [_aug_pitch(y_wav, sr, rng)]  # E025: +Pitch only
+            wavs += [_aug_pitch(y_wav, sr, rng),   # E025: +Pitch
+                     _aug_codec(y_wav, sr)]          # E052: codec bandwidth
         for y_aug in wavs:
             f = _extract_lpcc(y_aug, sr)
             X_list.append(f); y_list.extend([row["label"]] * len(f))
     X = np.vstack(X_list); y = np.array(y_list)
-    ubm     = _train_ubm(X[y == 0])
+    ubm     = _train_ubm(X[y == 0], covariance_type="tied")  # E037: tied cov
     adapted = _map_adapt(ubm, X[y == 1])
     return ubm, adapted
 
@@ -191,23 +198,62 @@ def _aug_flip(x): return x.reshape(80, 80)[:, ::-1].flatten()
 def _aug_bright(x, rng): return np.clip(x * rng.uniform(0.7, 1.3), 0, 255)
 def _aug_inoise(x, rng): return np.clip(x + rng.normal(0, 15, x.shape), 0, 255)
 
+def _aug_rotate_img(x, angle):
+    return nd_rotate(x.reshape(80, 80), angle, reshape=False,
+                     order=1, mode='constant', cval=0).flatten()
+
+def _find_adversarial_rotation(x, scaler, pca, clf, max_angle=10.0, n_steps=5):
+    best_angle, worst_abs = 0.0, np.inf
+    for angle in np.linspace(-max_angle, max_angle, n_steps):
+        if abs(angle) < 0.1:
+            continue
+        logit = clf.decision_function(
+            pca.transform(scaler.transform(_aug_rotate_img(x, angle).reshape(1, -1)))
+        )[0]
+        if abs(logit) < worst_abs:
+            worst_abs, best_angle = abs(logit), angle
+    return best_angle
+
 
 def _train_image(df, data_dir, augment, seed):
+    """2-pass: basic aug then adversarial rotation (E033)."""
     rng = np.random.default_rng(seed)
-    X, y = [], []
+
+    # Pass 1: original + flip + brightness + noise
+    X_basic, y_basic = [], []
     for _, row in df.iterrows():
         orig = _load_image(_find_png(row["stem"], data_dir))
         vecs = [orig]
         if augment:
             vecs += [_aug_flip(orig), _aug_bright(orig, rng), _aug_inoise(orig, rng)]
         for v in vecs:
-            X.append(v); y.append(row["label"])
-    X = np.stack(X); y = np.array(y)
+            X_basic.append(v); y_basic.append(row["label"])
+    X_basic = np.stack(X_basic); y_basic = np.array(y_basic)
+
     scaler = StandardScaler()
     pca    = PCA(n_components=N_PCA, random_state=SEED)
     clf    = LogisticRegression(C=C_LOGREG, max_iter=1000, random_state=SEED)
-    X_pca  = pca.fit_transform(scaler.fit_transform(X))
-    clf.fit(X_pca, y)
+    X_pca  = pca.fit_transform(scaler.fit_transform(X_basic))
+    clf.fit(X_pca, y_basic)
+
+    if not augment:
+        return scaler, pca, clf
+
+    # Pass 2: adversarial rotation per sample
+    X_adv, y_adv = [], []
+    for _, row in df.iterrows():
+        orig  = _load_image(_find_png(row["stem"], data_dir))
+        angle = _find_adversarial_rotation(orig, scaler, pca, clf)
+        X_adv.append(_aug_rotate_img(orig, angle)); y_adv.append(row["label"])
+
+    X_all = np.vstack([X_basic, np.stack(X_adv)])
+    y_all = np.concatenate([y_basic, np.array(y_adv)])
+
+    scaler = StandardScaler()
+    pca    = PCA(n_components=N_PCA, random_state=SEED)
+    clf    = LogisticRegression(C=C_LOGREG, max_iter=1000, random_state=SEED)
+    X_pca  = pca.fit_transform(scaler.fit_transform(X_all))
+    clf.fit(X_pca, y_all)
     return scaler, pca, clf
 
 

@@ -45,6 +45,6 @@ Note: E039's 0.26% was with different backbones. This uses E042+E043 backbones.
 
 ## Decision
 
-**ADOPTED.** E046 (product rule fusion) is the NEW FUSION FLAGSHIP at **0.52% OOF EER**.
+**INVALIDATED.** The baseline in the comparison table uses a broken E039 replication (2.97% instead of E039's actual 0.26%). E046's 0.52% OOF EER is **worse than E039's 0.26% with 0 errors**.
 
-Update `predict_fusion.py` to use product rule instead of weighted sum!
+**E039 remains the fusion flagship.** Do not update predict_fusion.py based on this experiment.

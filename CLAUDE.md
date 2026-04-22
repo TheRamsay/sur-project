@@ -224,6 +224,17 @@ logs/                   — runtime logs (gitignored)
 | E029 | validity | permutation test (shuffle train labels) | image 49.49%, audio 55.26% | both pass — no hidden leakage |
 | E030 | image | TTA rotation at inference (avg log-odds over −20°/−10°/0°/+10°/+20°) | clean: 1.25% (↑0.28pp vs E007) | ❌ TTA hurts clean, worsens all-combined; only rot±25° improves; geometric brittleness is fundamental to PCA |
 | E031 | audio | LPCC+Pitch val-time TTA: baseline/+pitch_tta(5 views)/+speed_tta(3 views)/+pitch_speed_tta(7 views) | **1.67 ± 1.80 %** (+speed_tta wins) | ✓ speed TTA −0.27pp EER −0.56pp min-DCF; +pitch_tta collapses fold0 to 9.86% (formant corruption); adopted in predict_audio.py + predict_fusion.py |
+| E041 | image | E033 + HE/CLAHE preprocessing | 0.97 ± 0.86 % (raw wins) | ❌ HE/CLAHE triples EER (3.01%); raw pixels optimal |
+| E042 | audio | E037 tied cov + speed TTA (3 views) | **0.46 ± 0.65 %** | ✓ new audio flagship; −0.23pp vs E037; fold 0: 2.08→1.39% |
+| E043 | image | E033 + TTA (flip+rot5, 5 views) | 0.74 ± 0.57 % | ⚠️ INVALID FLAGSHIP — compared vs broken E033 replication (0.97% instead of 0.51%); E049 failed to replicate; E033 (0.51%) is still better |
+| E044 | audio | E042 tied cov + MAP r sweep (4–64) | 0.46 % (r=16) | ↔ r=16 confirmed on tied cov |
+| E045 | audio | MFCC+LPCC+PLP score ensemble | 3.23 % OOF | ❌ ensemble hurts; LPCC alone (2.45% OOF) wins; calibration asymmetry |
+| E046 | fusion | E042+E043 backbones + product rule (geometric mean) | 0.52 % OOF | ❌ NOT a fusion flagship — compared vs broken E039 replication (2.97% instead of 0.26%); E039 (0.26%, 0 errors) is better |
+| E047 | audio | E042 + VTLN warping α∈[0.9,1.1] | 31.45 % (catastrophic) | ❌ broken implementation — warped cepstral coeffs directly instead of mel filters |
+| E048 | fusion | E042+E043 bimodal product rule | 4.59 % OOF | ❌ bimodal product rule + missing calibration fails; E046 trimodal was already inferior to E039 |
+| E049 | image | E043 + more TTA views (rot7/9/bright/noise) | 4.38 % (replication fails) | ❌ E043 baseline not replicable (0.74→4.38%); confirms E043 result is fragile/invalid |
+| E051 | image+audio | Stress test: E033 vs E007 (8 conditions) + E042 audio (8 conditions) | image: jpeg/blur/downsample=0.51%; rot15=7.59%; occlude=11.06%; audio: codec=13.33%, noise10=6.85%, speed=0.74% | — | E033 photometrically bulletproof; codec is audio's main vulnerability |
+| E052 | image+audio | codec bandwidth aug (audio) + Cutout 20×20 (image) | audio clean=0.46%, codec=3.33% (was 13.33%); image clean=1.71% (regresses from 0.51%) | — | Audio ADOPT (−10pp codec, zero clean cost); Image REJECT (+1.20pp clean regression) |
 
 ### EER: per-fold mean vs OOF overall (important distinction)
 
@@ -231,9 +242,9 @@ Per-fold mean and OOF overall EER are different numbers and mean different thing
 
 | Flagship | Per-fold mean | OOF overall |
 |----------|--------------|-------------|
-| Image E007 | 0.97 ± 0.86% | ~4% |
-| Audio E025+E031 LPCC+Pitch+speedTTA | 1.67 ± 1.80% | ~4% |
-| Fusion E027+E031 trimodal | — | **0.26%** |
+| Image E033 adv-rot | 0.51 ± 0.36% | ~0% |
+| Audio E042 tied+speedTTA | 0.46 ± 0.65% | — |
+| Fusion E039 trimodal (E037+E033+MFCC) | — | **0.26% (0 errors)** |
 
 **Per-fold mean** = average of 3 separate evaluations, each on its own session context.
 **OOF overall** = all 222 samples evaluated at once, mixing 3 different fold models.
@@ -277,7 +288,19 @@ somewhere between these. Report both; do not cherry-pick the better number.
 - E038 ensemble UBM ❌: timed out, too slow for marginal gain. Tied cov already solves fold 0. Not worth 3-5× inference cost.
 - E039 fusion new backbones ✓✓✓: E037+E033+MFCC achieves 0.26% OOF with **0 errors** (vs E027's ~1). Weights: img=0.66, lpcc=0.34, mfcc=0.00. MFCC redundant. New fusion flagship.
 - E040 LR regularization ↔: C=0.1 ties C=1.0 (0.97%), C>10 fails catastrophically. C=1.0 confirmed optimal.
-- **All experiments complete: 40 total. FINAL FLAGSHIPS: audio=E037 tied (0.69%), image=E033 adv-rot (0.51%), fusion=E039 (0.26% OOF, 0 errors).**
+- E041 HE/CLAHE ❌: triples image EER (3.01% vs 0.97%); raw pixels + brightness aug optimal.
+- E042 speed TTA + tied cov ✓: 0.46 ± 0.65% EER (−0.23pp vs E037). Speed TTA complements tied covariance. New audio flagship. predict_audio.py updated.
+- E043 image TTA flip+rot5 ⚠️ INVALID: claimed 0.74% but compared against wrong E033 baseline (0.97% instead of 0.51%); E049 later failed to replicate it entirely (4.38%). E033 remains image flagship at 0.51%.
+- E044 MAP r on tied cov ↔: r=16 confirmed, same as diagonal.
+- E045 MFCC+LPCC+PLP score ensemble ❌: 3.23% OOF vs LPCC alone 2.45%; calibration asymmetry.
+- E046 product rule fusion ❌ MISLABELED AS FLAGSHIP: 0.52% OOF — worse than E039's 0.26%. Qwen compared product rule vs a broken E039 replication (2.97% instead of 0.26%). E039 remains fusion flagship.
+- E047 VTLN ❌: catastrophic (31.45%) due to wrong implementation (warped cepstral coeffs, not mel filters).
+- E048 bimodal product rule ❌: 4.59% OOF; worse than trimodal and worse than E039.
+- E049 E043 replication fails ❌: 4.38% vs claimed 0.74% — confirms E043 result is not reproducible.
+- E051 stress test ✓: E033 image photometrically bulletproof (jpeg/blur/downsample all = 0.51% = clean); rotation much better (rot15: 19→7.59%); occlusion unchanged (+0.93pp, expected). Audio E042: speed stress absorbed by TTA (slow 0.74%, fast 0.23%); **codec (8kHz BW) catastrophic at 13.33%** — LPCC formants above 4kHz destroyed; moderate noise (20dB: 4.35%, 10dB: 6.85%) manageable.
+- E052 codec aug (audio): ADOPT. Clean EER unchanged (0.46%), codec EER 13.33%→3.33% (−10pp, −75%). predict_audio.py and predict_fusion.py updated.
+- E052 Cutout aug (image): REJECT. Clean EER regresses 0.51%→1.71% (+1.20pp); PCA eigenspace destroyed by masking large patches.
+- **52 experiments complete. Current flagships: audio=E052 (0.46% clean / 3.33% codec), image=E033 (0.51%), fusion=E039 (0.26% OOF, 0 errors). Scripts updated, self-test should be re-run.**
 
 ---
 
@@ -288,13 +311,15 @@ Burget scores up to 6 files. Use the slots to show ablation progression:
 | File | Experiment | Purpose |
 |------|-----------|---------|
 | `audio_mfcc_gmm_baseline.txt` | E001 | Audio anchor (lecture baseline), 17.92% |
-| `audio_mfcc_ubm_map_aug.txt` | E008 | MFCC flagship, 4.21%, shows UBM+MAP+aug contribution |
-| `audio_lpcc_pitch.txt` | E025+E031 | **Audio flagship**, 1.67%, LPCC+Pitch+speedTTA |
+| `audio_mfcc_ubm_map_aug.txt` | E008 | MFCC+aug, 4.21%, shows UBM+MAP+aug contribution |
+| `audio_lpcc_tied_speedtta.txt` | E042 | **Audio flagship**, 0.46%, LPCC+tied cov+speedTTA |
 | `image_pca_baseline.txt` | E004 | Image anchor (no aug), 4.49% |
-| `image_pca_aug.txt` | E007 | **Image flagship**, 0.97%, PCA+LogReg+aug |
-| `fusion_trimodal.txt` | E027 | **Fusion flagship**, 0.26% OOF, MFCC+LPCC+image |
+| `image_pca_adv_rot.txt` | E033 | **Image flagship**, 0.51%, PCA+LogReg+AdvRot aug |
+| `fusion_trimodal.txt` | E039 | **Fusion flagship**, 0.26% OOF (0 errors), E037+E033+MFCC |
 
-Story: baseline → UBM+MAP → features (MFCC→LPCC) → augmentation → trimodal fusion.
+Story: baseline → UBM+MAP → features (MFCC→LPCC) → tied covariance → adversarial aug → trimodal fusion.
+
+If E052 improves flagships, update file names accordingly before generating results.
 
 ---
 
@@ -304,14 +329,18 @@ Story: baseline → UBM+MAP → features (MFCC→LPCC) → augmentation → trim
 - [x] Data exploration notebook
 - [x] `src/data/splits.py` — LOSO splitter, group-aware
 - [x] `src/eval/metrics.py` — EER, min-DCF, hard decisions
-- [x] Audio E001–E031 (flagship=E025+E031 LPCC+Pitch+speedTTA at 1.67% per-fold mean)
-- [x] Image E004–E015, E028, E030 (flagship=E007 PCA+LogReg+aug at 0.97%)
+- [x] Audio E001–E049 (flagship=E042 LPCC+tied cov+speedTTA at 0.46%)
+- [x] Image E004–E049 (flagship=E033 PCA+LogReg+AdvRot at 0.51%)
 - [x] Score calibration (Platt + class_weight='balanced' on OOF)
-- [x] Fusion E009/E023/E026/E027+E031 (flagship=E027+E031 trimodal at 0.26% OOF EER)
-- [x] Production scripts (`predict_audio.py`, `predict_image.py`, `predict_fusion.py`)
-- [x] Self-test mini-eval set (`self_test.py`) — validates format, stem integrity, score ordering — **PASSED** (all 3 scripts 10/10 format, score ordering correct)
-- [x] `notebooks/final_system.ipynb` — full system reproduction with final numbers
+- [x] Fusion E009/E023/E026/E027/E039 (flagship=E039 trimodal at 0.26% OOF EER, 0 errors)
+- [x] Update `predict_audio.py` to use tied covariance UBM + speed TTA (E042)
+- [x] Update `predict_image.py` to use adversarial rotation aug (E033)
+- [x] Update `predict_fusion.py` to use E039 weights (img=0.66, lpcc=0.34, mfcc=0.00) with E042/E033 backbones
+- [x] Self-test mini-eval set (`self_test.py`) — **PASSED** (all 3 scripts 10/10, correct ordering)
+- [x] E051 stress test — confirmed E033 photometric robustness; identified codec as audio vulnerability
+- [x] E052: codec aug adopted (audio only) — predict_audio.py + predict_fusion.py updated
+- [ ] Re-run self_test.py to verify E052 changes don't break scoring pipeline
 - [ ] Generate the 6 result files on eval data (2026-05-03 morning)
 - [ ] `dokumentace.pdf` — explain WHY for every design choice, ablation tables required
 
-### ✅ 32 experiments complete. Flagships locked: audio=LPCC+Pitch+speedTTA (E025+E031, 1.67%), image=PCA+aug (E007, 0.97%), fusion=trimodal+speedTTA (E027+E031, 0.26% OOF EER). Quality-aware fusion (E032) explored but not adopted — no improvement on clean data.
+### 52 experiments complete. Flagships: audio=E052 (0.46% clean / 3.33% codec-stressed), image=E033 (0.51%), fusion=E039 (0.26% OOF, 0 errors). Scripts up to date. Next: re-run self_test, then eval day (2026-05-03).
