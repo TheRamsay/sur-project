@@ -224,6 +224,15 @@ logs/                   — runtime logs (gitignored)
 | E029 | validity | permutation test (shuffle train labels) | image 49.49%, audio 55.26% | both pass — no hidden leakage |
 | E030 | image | TTA rotation at inference (avg log-odds over −20°/−10°/0°/+10°/+20°) | clean: 1.25% (↑0.28pp vs E007) | ❌ TTA hurts clean, worsens all-combined; only rot±25° improves; geometric brittleness is fundamental to PCA |
 | E031 | audio | LPCC+Pitch val-time TTA: baseline/+pitch_tta(5 views)/+speed_tta(3 views)/+pitch_speed_tta(7 views) | **1.67 ± 1.80 %** (+speed_tta wins) | ✓ speed TTA −0.27pp EER −0.56pp min-DCF; +pitch_tta collapses fold0 to 9.86% (formant corruption); adopted in predict_audio.py + predict_fusion.py |
+| E032 | fusion | E027+quality metrics (sharpness/SNR) + softmax/threshold/linear weighting | 0.78 % OOF (all strategies tie) | ❌ no improvement on clean; quality metrics don't correlate with recognition difficulty; 100% error rate on changed decisions |
+| E033 | image | PCA 50+LogReg + adversarial rotation ±10° (2-pass training) | **0.51 ± 0.36 %** | ← image flagship; −1.02pp vs E007; rot15: 13.70%→1.04% (13×); fold 0 pathology solved |
+| E034 | audio | LPCC+Pitch + Z-norm (20-speaker cohort) | 6.20 % OOF (= raw; min-DCF 0.0677 vs 0.1240) | ↔ same EER; min-DCF improves but dataset too small for effective cohort estimation |
+| E035 | fusion | MFCC+LPCC feature-level concatenation (78d) + UBM-MAP | FAILED | ❌ dimension mismatch bug — MFCC and LPCC have different frame counts per utterance |
+| E036 | image | Pyramid PCA 80/40/20 (87d) + LogReg | 1.53 ± 0.52 % (pyramid_3) | ❌ pyramid_3 improves over single (2.27%) but loses to E007+aug (0.97%); augmentation > multi-scale |
+| E037 | audio | LPCC + UBM-32 covariance ablation (diag/full/tied/spherical) | **0.69 ± 0.98 %** (tied) | ← audio flagship; tied 6.3× better than diag (4.35%); fold 0: 10.56%→2.08%; 1521 shared params vs 48k full |
+| E038 | audio | E037 tied cov + GMM ensemble (3–5 seeds, score avg) | TIMED OUT | ❌ too slow (3–5× cost); no marginal gain over tied cov; fold 0 already solved |
+| E039 | fusion | E037+E033+MFCC, Platt calib + simplex grid | **0.26 % OOF (0 errors)** | ← fusion flagship; img=0.66, lpcc=0.34, mfcc=0.00; MFCC redundant (w→0) |
+| E040 | image | E033 + LogReg C sweep {0.1, 1.0, 10, 100} + L1 | 0.97 ± 0.86 % (C=0.1/1.0) | ↔ C=1.0 confirmed; C>10 catastrophic; L1 terrible (13.52%); no change |
 | E041 | image | E033 + HE/CLAHE preprocessing | 0.97 ± 0.86 % (raw wins) | ❌ HE/CLAHE triples EER (3.01%); raw pixels optimal |
 | E042 | audio | E037 tied cov + speed TTA (3 views) | **0.46 ± 0.65 %** | ✓ superseded by E052 (codec aug added) |
 | E043 | image | E033 + TTA (flip+rot5, 5 views) | 0.74 ± 0.57 % | ⚠️ INVALID FLAGSHIP — compared vs broken E033 replication (0.97% instead of 0.51%); E049 failed to replicate; E033 (0.51%) is still better |
