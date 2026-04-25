@@ -14,14 +14,15 @@ import argparse
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
 from scipy.ndimage import rotate as nd_rotate
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 
+from src.data.manifest import find_png
 from src.data.splits import load_manifest, iter_folds_loso
 from src.eval.metrics import compute_min_dcf
+from src.features.image import load_image
 
 SEED = 67
 N_PCA = 50
@@ -31,22 +32,6 @@ C_LOGREG = 1.0
 # ---------------------------------------------------------------------------
 # Features
 # ---------------------------------------------------------------------------
-
-def _find_png(stem: str, data_dir: Path) -> Path:
-    for sf in ("target_train", "target_dev", "non_target_train", "non_target_dev"):
-        p = data_dir / sf / (stem + ".png")
-        if p.exists():
-            return p
-    raise FileNotFoundError(stem)
-
-
-def _load_image(path: Path) -> np.ndarray:
-    # convert("RGB") strips alpha channel; resize guards against eval format surprises
-    img = Image.open(path).convert("RGB")
-    if img.size != (80, 80):
-        img = img.resize((80, 80), Image.BILINEAR)
-    return np.array(img, dtype=np.float32).mean(axis=2).flatten()
-
 
 def _aug_flip(x: np.ndarray) -> np.ndarray:
     return x.reshape(80, 80)[:, ::-1].flatten()
@@ -91,7 +76,7 @@ def _train(df, data_dir: Path, augment: bool, seed: int):
     # Pass 1: original + flip + brightness + noise
     X_basic, y_basic = [], []
     for _, row in df.iterrows():
-        orig = _load_image(_find_png(row["stem"], data_dir))
+        orig = load_image(find_png(row["stem"], data_dir))
         vecs = [orig]
         if augment:
             vecs += [_aug_flip(orig), _aug_brightness(orig, rng), _aug_noise(orig, rng)]
@@ -113,7 +98,7 @@ def _train(df, data_dir: Path, augment: bool, seed: int):
     # Pass 2: adversarial rotation per sample
     X_adv, y_adv = [], []
     for _, row in df.iterrows():
-        orig  = _load_image(_find_png(row["stem"], data_dir))
+        orig  = load_image(find_png(row["stem"], data_dir))
         angle = _find_adversarial_rotation(orig, scaler, pca, clf)
         X_adv.append(_aug_rotate(orig, angle))
         y_adv.append(row["label"])
@@ -130,14 +115,14 @@ def _train(df, data_dir: Path, augment: bool, seed: int):
 
 
 def _score_png(png_path: Path, scaler, pca, clf) -> float:
-    x     = _load_image(png_path).reshape(1, -1)
+    x     = load_image(png_path).reshape(1, -1)
     x_pca = pca.transform(scaler.transform(x))
     return float(clf.decision_function(x_pca)[0])
 
 
 def _score_png_tta(png_path: Path, scaler, pca, clf) -> float:
     """TTA: average original + horizontally flipped score."""
-    x      = _load_image(png_path)
+    x      = load_image(png_path)
     x_flip = _aug_flip(x)
     score_orig = float(clf.decision_function(pca.transform(scaler.transform(x.reshape(1,-1))))[0])
     score_flip = float(clf.decision_function(pca.transform(scaler.transform(x_flip.reshape(1,-1))))[0])
@@ -153,7 +138,7 @@ def _collect_oof(manifest, data_dir: Path) -> np.ndarray:
     for fold_id, train_idx, val_idx in iter_folds_loso(manifest, seed=SEED):
         scaler, pca, clf = _train(manifest.loc[train_idx], data_dir,
                                   augment=True, seed=SEED + fold_id)
-        X_val  = np.stack([_load_image(_find_png(row["stem"], data_dir))
+        X_val  = np.stack([load_image(find_png(row["stem"], data_dir))
                            for _, row in manifest.loc[val_idx].iterrows()])
         X_pca  = pca.transform(scaler.transform(X_val))
         oof[val_idx] = clf.decision_function(X_pca)

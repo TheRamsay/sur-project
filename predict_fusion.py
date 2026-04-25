@@ -19,7 +19,6 @@ from pathlib import Path
 
 import librosa
 import numpy as np
-from PIL import Image
 from scipy.ndimage import rotate as nd_rotate
 from scipy.special import logsumexp
 from sklearn.decomposition import PCA
@@ -27,8 +26,11 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.mixture import GaussianMixture
 from sklearn.preprocessing import StandardScaler
 
+from src.data.manifest import find_png, find_wav
 from src.data.splits import load_manifest, iter_folds_loso
 from src.eval.metrics import compute_eer, compute_min_dcf
+from src.features.audio import extract_lpcc, extract_mfcc
+from src.features.image import load_image
 
 SEED           = 67
 UBM_COMPONENTS = 32
@@ -39,33 +41,8 @@ C_LOGREG       = 1.0
 
 
 # ---------------------------------------------------------------------------
-# Common helpers
-# ---------------------------------------------------------------------------
-
-def _find_wav(stem, data_dir):
-    for sf in ("target_train", "target_dev", "non_target_train", "non_target_dev"):
-        p = data_dir / sf / (stem + ".wav")
-        if p.exists(): return p
-    raise FileNotFoundError(stem)
-
-def _find_png(stem, data_dir):
-    for sf in ("target_train", "target_dev", "non_target_train", "non_target_dev"):
-        p = data_dir / sf / (stem + ".png")
-        if p.exists(): return p
-    raise FileNotFoundError(stem)
-
-
-# ---------------------------------------------------------------------------
 # MFCC audio (E008)
 # ---------------------------------------------------------------------------
-
-def _extract_mfcc(y, sr):
-    mfcc   = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
-    delta  = librosa.feature.delta(mfcc)
-    delta2 = librosa.feature.delta(mfcc, order=2)
-    feat   = np.vstack([mfcc, delta, delta2]).T
-    feat  -= feat.mean(axis=0)
-    return feat
 
 def _aug_noise(y, rng):
     p = np.mean(y**2) + 1e-10
@@ -78,26 +55,6 @@ def _aug_speed(y, rng):
 # ---------------------------------------------------------------------------
 # LPCC audio (E025 +Pitch)
 # ---------------------------------------------------------------------------
-
-def _extract_lpcc(y, sr, order=12, n_cep=13, hop_length=160, win_length=400):
-    frames = librosa.util.frame(y, frame_length=win_length, hop_length=hop_length)
-    cep_frames = []
-    for frame in frames.T:
-        frame = frame * np.hanning(len(frame))
-        try:
-            a = librosa.lpc(frame.astype(np.float64), order=order)
-            A_freq = np.fft.rfft(a, n=512)
-            log_H = -np.log(np.abs(A_freq) + 1e-10)
-            cep = np.real(np.fft.irfft(log_H))[:n_cep]
-        except Exception:
-            cep = np.zeros(n_cep)
-        cep_frames.append(cep)
-    feat   = np.array(cep_frames, dtype=np.float32)
-    delta  = librosa.feature.delta(feat.T).T
-    delta2 = librosa.feature.delta(feat.T, order=2).T
-    feat   = np.hstack([feat, delta, delta2])
-    feat  -= feat.mean(axis=0)
-    return feat
 
 def _aug_pitch(y, sr, rng):
     n_steps = float(rng.choice([-2, -1, 1, 2]))
@@ -133,12 +90,12 @@ def _train_mfcc(df, data_dir, augment, seed):
     rng = np.random.default_rng(seed)
     X_list, y_list = [], []
     for _, row in df.iterrows():
-        y_wav, sr = librosa.load(_find_wav(row["stem"], data_dir), sr=None, mono=True)
+        y_wav, sr = librosa.load(find_wav(row["stem"], data_dir), sr=None, mono=True)
         wavs = [y_wav]
         if augment:
             wavs += [_aug_noise(y_wav, rng), _aug_speed(y_wav, rng)]
         for y_aug in wavs:
-            f = _extract_mfcc(y_aug, sr)
+            f = extract_mfcc(y_aug, sr)
             X_list.append(f); y_list.extend([row["label"]] * len(f))
     X = np.vstack(X_list); y = np.array(y_list)
     ubm     = _train_ubm(X[y == 0])
@@ -150,13 +107,13 @@ def _train_lpcc(df, data_dir, augment, seed):
     rng = np.random.default_rng(seed)
     X_list, y_list = [], []
     for _, row in df.iterrows():
-        y_wav, sr = librosa.load(_find_wav(row["stem"], data_dir), sr=None, mono=True)
+        y_wav, sr = librosa.load(find_wav(row["stem"], data_dir), sr=None, mono=True)
         wavs = [y_wav]
         if augment:
             wavs += [_aug_pitch(y_wav, sr, rng),   # E025: +Pitch
                      _aug_codec(y_wav, sr)]          # E052: codec bandwidth
         for y_aug in wavs:
-            f = _extract_lpcc(y_aug, sr)
+            f = extract_lpcc(y_aug, sr)
             X_list.append(f); y_list.extend([row["label"]] * len(f))
     X = np.vstack(X_list); y = np.array(y_list)
     ubm     = _train_ubm(X[y == 0], covariance_type="tied")  # E037: tied cov
@@ -166,12 +123,12 @@ def _train_lpcc(df, data_dir, augment, seed):
 
 def _score_mfcc(wav_path, adapted, ubm):
     y, sr = librosa.load(wav_path, sr=None, mono=True)
-    f     = _extract_mfcc(y, sr)
+    f     = extract_mfcc(y, sr)
     return float((adapted.score_samples(f) - ubm.score_samples(f)).mean())
 
 
 def _llr_lpcc(y, sr, adapted, ubm):
-    f = _extract_lpcc(y, sr)
+    f = extract_lpcc(y, sr)
     return float((adapted.score_samples(f) - ubm.score_samples(f)).mean())
 
 
@@ -187,12 +144,6 @@ def _score_lpcc(wav_path, adapted, ubm):
 # ---------------------------------------------------------------------------
 # Image (E007)
 # ---------------------------------------------------------------------------
-
-def _load_image(path):
-    img = Image.open(path).convert("RGB")
-    if img.size != (80, 80):
-        img = img.resize((80, 80), Image.BILINEAR)
-    return np.array(img, dtype=np.float32).mean(axis=2).flatten()
 
 def _aug_flip(x): return x.reshape(80, 80)[:, ::-1].flatten()
 def _aug_bright(x, rng): return np.clip(x * rng.uniform(0.7, 1.3), 0, 255)
@@ -222,7 +173,7 @@ def _train_image(df, data_dir, augment, seed):
     # Pass 1: original + flip + brightness + noise
     X_basic, y_basic = [], []
     for _, row in df.iterrows():
-        orig = _load_image(_find_png(row["stem"], data_dir))
+        orig = load_image(find_png(row["stem"], data_dir))
         vecs = [orig]
         if augment:
             vecs += [_aug_flip(orig), _aug_bright(orig, rng), _aug_inoise(orig, rng)]
@@ -242,7 +193,7 @@ def _train_image(df, data_dir, augment, seed):
     # Pass 2: adversarial rotation per sample
     X_adv, y_adv = [], []
     for _, row in df.iterrows():
-        orig  = _load_image(_find_png(row["stem"], data_dir))
+        orig  = load_image(find_png(row["stem"], data_dir))
         angle = _find_adversarial_rotation(orig, scaler, pca, clf)
         X_adv.append(_aug_rotate_img(orig, angle)); y_adv.append(row["label"])
 
@@ -258,7 +209,7 @@ def _train_image(df, data_dir, augment, seed):
 
 
 def _score_image(png_path, scaler, pca, clf):
-    x = _load_image(png_path).reshape(1, -1)
+    x = load_image(png_path).reshape(1, -1)
     return float(clf.decision_function(pca.transform(scaler.transform(x)))[0])
 
 
@@ -306,9 +257,9 @@ def main():
         scaler, pca, clf = _train_image(train_df, data_dir, augment=True, seed=seed_f)
 
         for idx, row in val_df.iterrows():
-            oof_mfcc[idx]  = _score_mfcc(_find_wav(row["stem"], data_dir), ad_m, ubm_m)
-            oof_lpcc[idx]  = _score_lpcc(_find_wav(row["stem"], data_dir), ad_l, ubm_l)
-            oof_image[idx] = _score_image(_find_png(row["stem"], data_dir), scaler, pca, clf)
+            oof_mfcc[idx]  = _score_mfcc(find_wav(row["stem"], data_dir), ad_m, ubm_m)
+            oof_lpcc[idx]  = _score_lpcc(find_wav(row["stem"], data_dir), ad_l, ubm_l)
+            oof_image[idx] = _score_image(find_png(row["stem"], data_dir), scaler, pca, clf)
 
     print("Fitting calibrators...")
     cal_m = _fit_calibrator(oof_mfcc,  y_all)

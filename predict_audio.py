@@ -22,8 +22,10 @@ from scipy.special import logsumexp
 from sklearn.linear_model import LogisticRegression
 from sklearn.mixture import GaussianMixture
 
+from src.data.manifest import find_wav
 from src.data.splits import load_manifest, iter_folds_loso
 from src.eval.metrics import compute_min_dcf
+from src.features.audio import extract_lpcc
 
 SEED = 67
 UBM_COMPONENTS = 32
@@ -34,38 +36,6 @@ SNR_DB = 20.0
 # ---------------------------------------------------------------------------
 # Features
 # ---------------------------------------------------------------------------
-
-def _find_wav(stem: str, data_dir: Path) -> Path:
-    for sf in ("target_train", "target_dev", "non_target_train", "non_target_dev"):
-        p = data_dir / sf / (stem + ".wav")
-        if p.exists():
-            return p
-    raise FileNotFoundError(stem)
-
-
-def _extract_features(y: np.ndarray, sr: int,
-                      order: int = 12, n_cep: int = 13,
-                      hop_length: int = 160, win_length: int = 400) -> np.ndarray:
-    """LPCC 13+Δ+ΔΔ+CMN (E020). Outperforms MFCC on this dataset."""
-    frames = librosa.util.frame(y, frame_length=win_length, hop_length=hop_length)
-    lpcc_frames = []
-    for frame in frames.T:
-        frame = frame * np.hanning(len(frame))
-        try:
-            a = librosa.lpc(frame.astype(np.float64), order=order)
-            A_freq = np.fft.rfft(a, n=512)
-            log_H = -np.log(np.abs(A_freq) + 1e-10)
-            cep = np.real(np.fft.irfft(log_H))[:n_cep]
-        except Exception:
-            cep = np.zeros(n_cep)
-        lpcc_frames.append(cep)
-    feat   = np.array(lpcc_frames, dtype=np.float32)
-    delta  = librosa.feature.delta(feat.T).T
-    delta2 = librosa.feature.delta(feat.T, order=2).T
-    feat   = np.hstack([feat, delta, delta2])
-    feat  -= feat.mean(axis=0)
-    return feat
-
 
 def _aug_pitch(y: np.ndarray, sr: int, rng: np.random.Generator) -> np.ndarray:
     n_steps = float(rng.choice([-2, -1, 1, 2]))
@@ -82,20 +52,20 @@ def _extract_frames(df, data_dir: Path, augment: bool, seed: int):
     rng = np.random.default_rng(seed)
     all_X, all_y = [], []
     for _, row in df.iterrows():
-        y_wav, sr = librosa.load(_find_wav(row["stem"], data_dir), sr=None, mono=True)
+        y_wav, sr = librosa.load(find_wav(row["stem"], data_dir), sr=None, mono=True)
         wavs = [y_wav]
         if augment:
             wavs += [_aug_pitch(y_wav, sr, rng),    # E025: pitch shift
                      _aug_codec(y_wav, sr)]           # E052: codec bandwidth
         for y_aug in wavs:
-            frames = _extract_features(y_aug, sr)
+            frames = extract_lpcc(y_aug, sr)
             all_X.append(frames)
             all_y.extend([row["label"]] * len(frames))
     return np.vstack(all_X), np.array(all_y)
 
 
 def _llr(y: np.ndarray, sr: int, adapted: GaussianMixture, ubm: GaussianMixture) -> float:
-    f = _extract_features(y, sr)
+    f = extract_lpcc(y, sr)
     return float((adapted.score_samples(f) - ubm.score_samples(f)).mean())
 
 
@@ -149,7 +119,7 @@ def _collect_oof(manifest, data_dir: Path) -> np.ndarray:
         ubm, adapted = _train(manifest.loc[train_idx], data_dir,
                               augment=True, seed=SEED + fold_id)
         for idx, row in manifest.loc[val_idx].iterrows():
-            oof[idx] = _score_wav_tta(_find_wav(row["stem"], data_dir), adapted, ubm)
+            oof[idx] = _score_wav_tta(find_wav(row["stem"], data_dir), adapted, ubm)
     return oof
 
 
