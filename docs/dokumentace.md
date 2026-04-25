@@ -72,12 +72,7 @@ Augmentation is what made the image system competitive, and it runs in two passe
 
 **Pass 2.** For each training image I query the Pass-1 model at five angles in [−10°, +10°] and pick the angle with minimum |logit|, i.e. the angle of maximum model uncertainty. A rotated copy at that angle is added to the training set, and PCA + LogReg is refit on the expanded set. The mechanism explains why this works where random rotation does not (E015). Random rotation samples uniformly from the rotation manifold and PCA fits the average; the easy angles dominate and the hard ones stay unmodelled. Adversarial selection inverts that. Each sample contributes the rotation the current eigenspace fails on, so principal components are reallocated towards the directions of model uncertainty. It is hard-negative mining, applied to PCA.
 
-|                       | Clean EER         | rot ±15° (E033 ablation) | rot ±15° (E051 re-stress) |
-|-----------------------|------------------:|-------------------------:|--------------------------:|
-| +All (E007)           | 0.97 ± 0.86 %     | 13.70 %                  | 19.00 %                   |
-| **+AdvRot (E033)**    | **0.51 ± 0.36 %** | **1.04 %**               | **7.59 %**                |
-
-Clean EER nearly halves (0.97 % to 0.51 %), and rotation robustness improves by 2.5–13× depending on the measurement protocol. I report both numbers because the gap between them tells me something about eval-time uncertainty: the true number is probably somewhere between the two. JPEG, blur, contrast, HE/CLAHE and Cutout 20×20 (E052) all regressed when added on top, so the current set sits at the empirical ceiling.
+The figure below summarises the head-to-head against the +All baseline (E051 stress test, same seed and protocol for both rows). E033 is photometrically bulletproof and roughly halves rotation EER. JPEG, blur, contrast, HE/CLAHE and Cutout 20×20 (E052) all regressed when added on top, so the current set sits at the empirical ceiling.
 
 ![Image stress test: AdvRot is photometrically bulletproof (JPEG, blur, downsample stay at clean 0.51 %) and halves the geometric weaknesses.](figures/alt_a_image_robustness.pdf){ width=90% }
 
