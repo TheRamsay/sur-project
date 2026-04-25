@@ -244,6 +244,7 @@ logs/                   — runtime logs (gitignored)
 | E049 | image | E043 + more TTA views (rot7/9/bright/noise) | 4.38 % (replication fails) | ❌ E043 baseline not replicable (0.74→4.38%); confirms E043 result is fragile/invalid |
 | E051 | image+audio | Stress test: E033 vs E007 (8 conditions) + E042 audio (8 conditions) | image: jpeg/blur/downsample=0.51%; rot15=7.59%; occlude=11.06%; audio: codec=13.33%, noise10=6.85%, speed=0.74% | — | E033 photometrically bulletproof; codec is audio's main vulnerability |
 | E052 | audio+image | codec bandwidth aug (audio) + Cutout 20×20 (image) | **audio: 0.46 ± 0.65 % clean / 3.33 ± 4.14 % codec**; image: 1.71% (regress) | — | ← **audio flagship**; codec −10pp, zero clean cost; image Cutout REJECT (+1.20pp clean regression) |
+| E053 | audio | E052 + hard 2 s prefix truncation | 0.83 ± 0.68 % clean / 2.78 ± 1.96 % codec | ❌ clean regresses +0.37pp; codec mean drops but via fold-reshuffling not real gain; CMN already handles pre-speech noise |
 
 ### EER: per-fold mean vs OOF overall (important distinction)
 
@@ -309,7 +310,9 @@ somewhere between these. Report both; do not cherry-pick the better number.
 - E051 stress test ✓: E033 image photometrically bulletproof (jpeg/blur/downsample all = 0.51% = clean); rotation much better (rot15: 19→7.59%); occlusion unchanged (+0.93pp, expected). Audio E042: speed stress absorbed by TTA (slow 0.74%, fast 0.23%); **codec (8kHz BW) catastrophic at 13.33%** — LPCC formants above 4kHz destroyed; moderate noise (20dB: 4.35%, 10dB: 6.85%) manageable.
 - E052 codec aug (audio) ✓✓: **new audio flagship**. Clean EER unchanged (0.46%), codec EER 13.33%→3.33% (−10pp, −75%). predict_audio.py and predict_fusion.py updated.
 - E052 Cutout aug (image) ❌: REJECT. Clean EER regresses 0.51%→1.71% (+1.20pp); PCA eigenspace destroyed by masking large patches. E033 remains image flagship.
-- **52 experiments complete. Current flagships: audio=E052 (0.46% clean / 3.33% codec), image=E033 (0.51%), fusion=E039 (0.26% OOF, 0 errors). Scripts updated, self-test should be re-run.**
+- E053 2 s prefix truncation ❌: clean EER 0.46%→0.83%; apparent codec mean drop (3.33%→2.78%) is fold-reshuffling, not real gain — errors migrate from fold 0 to folds 1–2. CMN already handles stationary pre-speech noise; no meaningful silence header in these recordings.
+- **Fusion weight reproducibility note:** re-running the OOF pipeline (2026-04-24) yielded `w_image=0.54, w_lpcc=0.46, w_mfcc=0.00` instead of the originally reported `0.66/0.34/0.00`. Both are tied optima on the simplex grid (both reach 0/222 errors) — the EER surface is flat at 0 so the grid-search argmin is not unique. Flagship result (0 errors) is unchanged.
+- **53 experiments complete. Current flagships: audio=E052 (0.46% clean / 3.33% codec), image=E033 (0.51%), fusion=E039 (0.26% OOF, 0 errors). Scripts updated, self-test passed, documentation drafted with publication figures.**
 
 ---
 
@@ -346,7 +349,10 @@ Story: baseline → UBM+MAP → features (MFCC→LPCC) → tied covariance → a
 - [x] Self-test mini-eval set (`self_test.py`) — **PASSED** (all 3 scripts 10/10, correct ordering, re-verified after E052)
 - [x] E051 stress test — confirmed E033 photometric robustness; identified codec as audio vulnerability
 - [x] E052: codec aug adopted (audio only) — predict_audio.py + predict_fusion.py updated; self-test re-passed
+- [x] E053: 2 s prefix truncation — REJECTED; E052 remains audio flagship
+- [x] `docs/draft.md` compacted to ~3 A4 (submission-ready structure, rewrite in own words before upload)
+- [x] `notebooks/figures.py` + `notebooks/figures.ipynb` — 7 publication-grade figures generated into `docs/figures/` (PDF + 300 DPI PNG); OOF scores cached at `cache/oof_scores.pkl`
 - [ ] Generate the 6 result files on eval data (2026-05-03 morning)
-- [ ] `dokumentace.pdf` — explain WHY for every design choice, ablation tables required
+- [ ] `dokumentace.pdf` — render from `docs/draft.md` after personal rewrite; embed figures from `docs/figures/`
 
-### 52 experiments complete. Flagships: audio=E052 (0.46% clean / 3.33% codec-stressed), image=E033 (0.51%), fusion=E039 (0.26% OOF, 0 errors). Scripts up to date. Next: re-run self_test, then eval day (2026-05-03).
+### 53 experiments complete. Flagships: audio=E052 (0.46% clean / 3.33% codec-stressed), image=E033 (0.51%), fusion=E039 (0.26% OOF, 0 errors). Draft + figures ready. Next: eval day (2026-05-03), then render PDF from draft.
