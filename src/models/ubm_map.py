@@ -43,10 +43,6 @@ def llr_score(features: np.ndarray, adapted: GaussianMixture, ubm: GaussianMixtu
     return float((adapted.score_samples(features) - ubm.score_samples(features)).mean())
 
 
-# ---------------------------------------------------------------------------
-# Production audio pipelines
-# ---------------------------------------------------------------------------
-
 def train_lpcc_pipeline(df, data_dir: Path, augment: bool, seed: int):
     """E052: LPCC + tied-covariance UBM + MAP r=16, with pitch & codec augmentation."""
     rng = np.random.default_rng(seed)
