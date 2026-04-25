@@ -35,7 +35,7 @@ TRAIN_DIR = Path("data/target_train")
 REFS = sorted(TRAIN_DIR.glob("m431_*.wav"))
 print(f"Using {len(REFS)} reference clips for voice clone")
 
-# ── English prompts — match language of m431 recordings ──────────────────────
+# English prompts that match the language of m431 recordings
 PROMPTS = [
     "The weather today is quite pleasant and sunny.",
     "I enjoy reading books about science and technology.",

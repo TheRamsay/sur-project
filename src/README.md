@@ -1,4 +1,4 @@
-# `src/` — source tree
+# `src/`: source tree
 
 Single source of truth for the production code behind the three submitted systems.
 
@@ -16,5 +16,5 @@ Single source of truth for the production code behind the three submitted system
 - Functions take paths/arrays in, return arrays/metrics out. No globals.
 - Every model exposes `fit(X, y, groups) -> self` and `score(X) -> float[n]`
   returning a higher-is-target score, mirroring the evaluation format.
-- Fold assignment comes from **one** function in `data/` — all systems share it
+- Fold assignment comes from **one** function in `data/`: all systems share it
   so OOF scores align across modalities for stacking fusion.

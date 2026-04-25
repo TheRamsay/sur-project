@@ -1,4 +1,4 @@
-# SUR 2025/2026 — target-person detector
+# SUR 2025/2026: target-person detector
 
 Detector for target speaker `m431` from paired PNG + WAV samples.
 Three systems: image-only, audio-only, multimodal fusion.
@@ -29,9 +29,9 @@ uv run self_test.py
 
 ## Layout
 
-- `predict_*.py`, `self_test.py` — entry points
-- `src/` — features, augmentation, models, fusion, metrics
-- `experiments/` — one md log per experiment
-- `notebooks/` — exploratory analysis
-- `docs/` — `dokumentace.md` and figures
-- `data/` — corpus, gitignored
+- `predict_*.py`, `self_test.py`: entry points
+- `src/`: features, augmentation, models, fusion, metrics
+- `experiments/`: one md log per experiment
+- `notebooks/`: exploratory analysis
+- `docs/`: `dokumentace.md` and figures
+- `data/`: corpus, gitignored

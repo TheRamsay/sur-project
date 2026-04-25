@@ -29,7 +29,7 @@ SEED = 67
 
 
 def collect_oof_streams(manifest, data_dir: Path):
-    """Return (oof_mfcc, oof_lpcc, oof_image) — three Platt-pre-calibration streams."""
+    """Return (oof_mfcc, oof_lpcc, oof_image): three Platt-pre-calibration streams."""
     n = len(manifest)
     oof_mfcc, oof_lpcc, oof_image = (np.full(n, np.nan) for _ in range(3))
 

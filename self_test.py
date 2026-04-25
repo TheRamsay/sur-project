@@ -14,7 +14,7 @@ import tempfile
 from pathlib import Path
 
 # Ground truth: files we'll use for the self-test
-# Taken from dev splits — we know exactly which are target (m431) and which aren't
+# Taken from dev splits, we know exactly which are target (m431) and which aren't
 TARGET_STEMS = [
     "m431_03_p01_i0_0",
     "m431_03_p02_i0_0",
@@ -194,7 +194,7 @@ def main():
                     1 for r in rows if r[2] == gt.get(r[0], -1)
                 )
                 print(f"  ✓ OK")
-                print(f"      Scores   — target mean: {mean_t:+.3f},  non-target mean: {mean_nt:+.3f}")
+                print(f"      Scores: target mean: {mean_t:+.3f},  non-target mean: {mean_nt:+.3f}")
                 print(f"      Decisions correct: {decisions_correct}/{len(rows)}")
                 print(f"      Sample lines:")
                 for r in sorted(rows, key=lambda x: -x[1])[:3]:
@@ -203,9 +203,9 @@ def main():
 
         print(f"\n{'=' * 60}")
         if overall_ok:
-            print("✓ ALL CHECKS PASSED — safe to submit")
+            print("✓ ALL CHECKS PASSED, safe to submit")
         else:
-            print("✗ SOME CHECKS FAILED — fix before submission")
+            print("✗ SOME CHECKS FAILED, fix before submission")
             sys.exit(1)
 
     finally:
