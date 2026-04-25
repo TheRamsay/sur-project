@@ -1,16 +1,11 @@
 #!/usr/bin/env python3
-"""
-Self-test: verify all three predict scripts produce correct output format
-and that scores are not scrambled relative to ground truth.
-
-Burget's warning: "people send files where stems are correct but scores
-are shuffled because of a bad hash in Python."
+"""Self-test: run the three predict scripts on a 10-sample mini eval set
+built from dev data (known ground truth) and check output format plus
+score ordering. A common failure mode is stems correct but scores
+shuffled due to dict-iteration order; this catches that.
 
 Usage:
     uv run self_test.py
-
-Creates a small eval directory from dev data (known ground truth),
-runs all three predict scripts, and validates the results.
 """
 import shutil
 import subprocess
