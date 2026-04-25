@@ -140,4 +140,4 @@ uv run predict_image.py   --eval-dir <dir> --output results/image_pca_adv_rot.tx
 uv run predict_fusion.py  --eval-dir <dir> --output results/fusion_trimodal.txt
 ```
 
-Each output file contains one line per evaluation sample with three whitespace-separated fields: stem, score (higher = more confident target), and a hard decision (`1` = target, `0` = non-target) thresholded at the Bayes optimum for prior 0.5, calibrated on OOF min-DCF. The full ablation history, per-experiment notes and additional figures live under `experiments/` and `docs/figures/`.
+Each output file contains one line per evaluation sample with three whitespace-separated fields: stem, score (higher = more confident target), and a hard decision (`1` = target, `0` = non-target) thresholded at the Bayes optimum for prior 0.5, calibrated on OOF min-DCF.
