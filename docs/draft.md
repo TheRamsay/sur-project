@@ -1,266 +1,131 @@
 # SUR 2025/2026 — Documentation Draft
 
-> **Note:** This is a draft for inspiration. Rewrite in your own words before submission.
-> Required language: Czech, Slovak, or English. Required length: ~3 A4 pages.
+> ~3 A4. Rewrite in own words before submission. CZ / SK / EN allowed.
 
 ---
 
-## 1. Task Overview
+## 1. Task
 
-The goal is to build a binary detector for a single target person (m431) using face images and voice recordings. Three systems are required: image-only, audio-only, and multimodal fusion. All systems are trained exclusively on the provided data without any pretrained models or external data sources.
+Binary detector for target person **m431** from paired face PNG + voice WAV. Three systems required: image-only, audio-only, trimodal fusion. No pretrained models, no external data — trained only on the provided corpus with augmentation.
 
----
+## 2. Validation
 
-## 2. Validation Strategy
+Random K-Fold leaks session and speaker identity. We use a **3-fold session/speaker-aware LOSO split** shared across all three modalities:
 
-A naive random K-Fold leaks session information and inflates performance. We use a **session/speaker-aware grouped 3-fold Leave-One-Session-Out (LOSO)** strategy throughout all 52 experiments.
+- target rows grouped by session (`01`, `02`, `03`) — each fold holds out one full session;
+- non-target rows grouped by speaker identity — each fold holds out 2–3 unseen strangers.
 
-**Grouping logic:**
-- Target samples (m431): grouped by recording session (sessions 01, 02, 03). Each fold holds out one full session of the target speaker.
-- Non-target samples: grouped by speaker identity. Each fold holds out 2–3 unseen non-target identities.
+Both groupings feed one `GroupKFold` via a virtual column with disjoint ID spaces (`src/data/splits.py`). Sharing folds across modalities is load-bearing for stacking fusion via out-of-fold (OOF) scores.
 
-Both groupings are combined into a single `GroupKFold` via a virtual `group` column with disjoint ID spaces. The same fold assignment is shared across all three modalities, which is load-bearing for stacking fusion via out-of-fold (OOF) scores.
-
-**Why this matters:**
-The target split is session-disjoint, measuring generalization to a new recording sitting. The non-target split is identity-disjoint, measuring rejection of unseen strangers. A random fold would allow the model to memorize session-specific acoustic/appearance properties, producing over-optimistic CV estimates that collapse on the real evaluation set.
-
-**Primary metrics:**
-- EER (Equal Error Rate): reported as mean ± std across 3 folds
-- min-DCF at prior 0.5: threshold-independent calibration quality measure
-- OOF overall EER: all 222 samples pooled into one ranking (used for fusion)
+**Metrics:** EER and min-DCF at prior 0.5, reported as mean ± std over folds. For fusion we additionally report **OOF overall EER** (all 222 samples pooled into one ranking). All augmentation is applied only to the train fold — val samples are always raw, and scaler/PCA/UBM statistics are refit per fold. A permutation test (E029: shuffled labels → 49% image EER, 55% audio EER) confirms models learn from labels, not leakage.
 
 ---
 
-## 3. Audio System
+## 3. Audio system
 
-### 3.1 Feature Extraction
+### 3.1 Features
 
-After systematic ablation over MFCC, FBank, SDC, PLP, and **LPCC** features, Linear Predictive Cepstral Coefficients (LPCC) with temporal deltas were selected as the final audio representation.
+Speaker verification on ~170 training utterances is in the small-data regime where the **inductive bias of the front-end matters more than its expressive power**. LPCC directly parameterises the vocal-tract transfer function (Levinson-Durbin LPC + cepstral recursion) — the physical quantity that distinguishes speakers. MFCC's fixed Mel filterbank is a perceptually-motivated front-end designed for speech-*content* recognition, where speaker identity is precisely the nuisance variable to suppress. After ablating MFCC, FBank, SDC, PLP and LPCC under identical UBM-MAP conditions, **LPCC 13 + Δ + ΔΔ (LPC order 12, CMN per utterance)** wins on both EER and min-DCF (MFCC 4.21 % → LPCC 3.33 %). FBank (120-d) and SDC (104-d) over-parameterize GMM-32 on this dataset size; PLP's Bark + cube-root front-end hurts GMM fitting. LPC order 12 has a ≥ 2.5 pp moat over its neighbours — consistent with the `fs/1000 + 2` rule for 16 kHz audio.
 
-**Final features:** LPCC 13 + Δ + ΔΔ = 39-dimensional vectors, LPC order 12, CMN per utterance.
+### 3.2 Model — UBM-MAP with tied covariance
 
-**Key design decisions:**
-- **Deltas (Δ+ΔΔ):** Reduced EER from 17.92% to 10.09% (−7.83pp) vs. static MFCC. They capture temporal dynamics of vocal tract movement, which are speaker-discriminative and stable across sessions.
-- **LPC order 12:** Confirmed via ablation over {8, 10, 12, 14, 16, 20}. Order 12 achieves ≥2.5pp moat over all neighbors (order 10: 6.62%, order 14: 5.88%).
-- **LPCC over MFCC:** LPCC encodes vocal tract resonances via all-pole modelling, while MFCC applies a fixed filterbank followed by DCT. On this dataset LPCC achieves mean EER 3.33% vs. MFCC's 4.21%, with clearly better min-DCF (0.0333 vs. 0.0509). The error patterns are complementary across folds, which motivated using both in fusion.
-- **FBank, SDC, PLP rejected:** All regressed vs. MFCC/LPCC. FBank (120-dim) and SDC (104-dim) over-parameterize GMM-32 on ~170 training utterances. DCT compression and Δ+ΔΔ are beneficial regularizers, not limitations. PLP's equal-loudness + cube-root compression hurts GMM fitting more than it helps.
+A 32-component GMM is trained on all non-target training frames as the UBM; the target model is a MAP-adapted copy of the UBM means only (relevance r = 16). Scoring is the LLR between adapted model and UBM. UBM-64 over-fits (E010); CMVN removes discriminative variance (E012); r ≤ 16 is a flat plateau (E013, E044).
 
-### 3.2 Model: UBM-MAP with Tied Covariance
+The largest single improvement in the whole audio track was **tied covariance** (E037), where all 32 components share one full 39×39 covariance matrix:
 
-**Universal Background Model (UBM) + MAP Adaptation:**
+| Covariance | EER mean ± std | min-DCF | Parameters |
+|------------|---------------:|--------:|-----------:|
+| spherical  | 3.89 ± 3.75%   | 0.0778  | 32         |
+| diagonal   | 4.35 ± 4.40%   | 0.0870  | 1 248      |
+| **tied**   | **0.69 ± 0.98%** | **0.0139** | **1 521** |
+| full       | 1.48 ± 0.92%   | 0.0296  | 48 672     |
 
-A 32-component GMM is trained as a UBM on all non-target training frames. The target model is obtained via Maximum A Posteriori (MAP) adaptation of the UBM means only (relevance factor r = 16). Scoring uses the log-likelihood ratio (LLR) between the target-adapted GMM and the UBM.
+LPCC coefficients are strongly correlated (adjacent cepstra share formant structure). Diagonal covariance ignores those correlations; full per-component covariance (48 k params) overfits on 222 samples. Tied is the correct middle ground.
 
-**Covariance type: tied (E037).** All 32 components share a single full 39×39 covariance matrix. This was the single largest improvement in the entire audio track:
+### 3.3 Augmentation and TTA
 
-| Covariance type | EER mean ± std | min-DCF | Parameters |
-|-----------------|----------------|---------|------------|
-| spherical | 3.89 ± 3.75% | 0.0778 | 32 |
-| diagonal (MFCC baseline) | 4.35 ± 4.40% | 0.0870 | 1 248 |
-| **tied** | **0.69 ± 0.98%** | **0.0139** | 1 521 |
-| full | 1.48 ± 0.92% | 0.0296 | 48 672 |
+**Train-time:** pitch shift ±1–2 semitones (E025: LPCC-specific — trains the model to ignore F0 while preserving formant ratios; same aug *hurt* MFCC in E014 because the Mel filterbank already smooths pitch) and **codec simulation** (E052: each utterance is downsampled to 8 kHz and back, destroying frequencies above 4 kHz).
 
-Why tied covariance works: LPCC coefficients are highly correlated (adjacent cepstral coefficients share formant structure). Diagonal covariance treats each dimension independently, missing these correlations. Tied covariance captures them with only 1521 parameters — full per-component covariance (48k parameters) overfits on our 222-sample dataset.
+**Codec robustness (E052):**
 
-**Other model decisions:**
-- UBM-64 regressed (E010): ~2700 frames/component vs. ~5400 for UBM-32 — over-parameterized.
-- CMVN rejected (E012): UBM covariance already learns feature scale; per-utterance std normalization removes speaker-discriminative variance.
-- MAP r = 16 confirmed (E013, E044): flat plateau at r ≤ 16, regression at r = 32.
-- GMM supervector + LinearSVM rejected (E017): 1248-dim features, ~170 training samples → severe overfitting.
+| System              | Clean EER         | Codec-stressed EER |
+|---------------------|------------------:|-------------------:|
+| E042 baseline       | 0.46 ± 0.65%      | 13.33 ± 3.79%      |
+| **+ codec aug (E052)** | **0.46 ± 0.65%** | **3.33 ± 4.14%**   |
 
-### 3.3 Augmentation
+Zero clean regression, −10 pp under codec stress. The UBM learns a distribution that overlaps the bandwidth-limited regime, so the LLR stays informative when high-frequency formants are destroyed.
 
-**Training augmentation (applied only to the train fold, never to val):**
+**TTA (E031):** each utterance scored at original + 0.9× + 1.1× speed, LLRs averaged. The pitch/speed asymmetry is informative: speed perturbation retimes the signal but preserves the spectral envelope, so the LPC all-pole filter (and therefore LPCC) is invariant — averaging across speeds is averaging over benign perturbations. Pitch shift, by contrast, alters the source-filter relationship: F0 leaks into the LPC residual and the cepstral coefficients drift onto an out-of-distribution manifold the UBM was never trained on, collapsing fold 0 to 9.86 %. **2 s prefix truncation** (E053) was also rejected — CMN already suppresses stationary pre-speech noise, and the apparent codec-EER improvement was a fold-reshuffling artefact.
 
-**Pitch shift ±1–2 semitones (E025):** Helps LPCC specifically (EER 3.33% → 1.94%). LPCC encodes formant frequencies directly; pitch shift is the correct inductive bias because it trains the model to ignore fundamental frequency variation while preserving formant ratios. MFCC with pitch augmentation regressed (E014) — the fixed Mel filterbank already smooths pitch, so pitch aug corrupts the spectral envelope instead.
-
-**Codec simulation / bandwidth limiting (E052):** Each training utterance is downsampled to 8kHz and resampled back to the original sample rate. This simulates phone/codec bandwidth loss (frequencies above 4kHz destroyed). Effect on eval robustness:
-
-| Config | Clean EER | Codec-stressed EER |
-|--------|-----------|-------------------|
-| E042 baseline | 0.46 ± 0.65% | 13.33 ± 3.79% |
-| **+ codec aug (E052)** | **0.46 ± 0.65%** | **3.33 ± 4.14%** |
-
-Zero clean performance regression, −10pp codec stress EER (−75% relative). Mechanism: UBM learns a distribution that overlaps with the bandwidth-limited regime, so the LLR remains informative even when high-frequency formants are destroyed.
-
-**Why speed/noise aug from MFCC system is not used for LPCC:** Speed perturbation is handled at inference via TTA (see §3.4). Noise augmentation was tested for MFCC (E008: +All = noise+speed) but LPCC's optimal aug set differs — pitch aug is the LPCC-specific key contributor, not noise.
-
-### 3.4 Test-Time Augmentation (TTA)
-
-At inference, each utterance is scored three times: original, 0.9× speed, 1.1× speed. The three LLR scores are averaged. Speed perturbation is pitch-preserving (time-stretching does not shift formants), so LPCC features remain valid across views. This reduces score variance by exploiting the model's speed invariance learned during pitch augmentation.
-
-**Effect:** EER 1.94% → 1.67%, min-DCF 0.0389 → 0.0333. Together with tied covariance, the final audio system achieves **0.46 ± 0.65% EER**.
-
-Pitch TTA was tested (E031) and rejected — pitch-shifted views corrupt the LPCC formant structure, collapsing fold 0 to 9.86%.
-
-**Final audio system:** LPCC 13+Δ+ΔΔ + UBM-32 tied cov + MAP r=16 + pitch aug + codec aug + speed TTA → **0.46 ± 0.65% EER, min-DCF 0.0092**
+**Final audio system:** LPCC + tied-cov UBM + MAP r=16 + pitch & codec aug + speed TTA → **0.46 ± 0.65 % EER, min-DCF 0.0092**.
 
 ---
 
-## 4. Image System
+## 4. Image system
 
-### 4.1 Feature Extraction and Model
+### 4.1 Features and classifier
 
-**PCA 50 + Logistic Regression (C=1)**
+80×80 grayscale → per-pixel standardization → **PCA-50 → logistic regression (C = 1)**. LBP (E005) was killed by session-to-session lighting shifts (fold 2 collapsed to 45 % EER); Fisherfaces (E006) are capped at a 1-D projection with only 2 identities; `n_pca ∈ {20…150}` was swept (E011) with n = 50 optimal. `C` and penalty were swept (E040) — C = 1 confirmed, L1 catastrophic. HE/CLAHE triples EER (E041); pyramid multi-scale PCA loses to plain + augmentation (E036).
 
-Face images (80×80 grayscale) are flattened, standardized with per-pixel mean/std, projected onto 50 principal components, and classified with logistic regression.
+### 4.2 Augmentation — two-pass adversarial training (E033)
 
-**Why PCA over alternatives:**
-- LBP texture features (E005): session-to-session lighting and pose change kills texture — fold 2 collapsed to 45% EER. PCA captures global appearance, more robust to these shifts.
-- LDA / Fisherfaces (E006): constrained to n_classes − 1 = 1 dimension with only 2 identities. The 1D projection loses discriminative capacity. PCA + LogReg in 50D is strictly better (18.24% vs. 4.49%).
-- n = 50 confirmed optimal (E011) via sweep over {20, 30, 50, 75, 100, 150}: n < 30 underfit, n ≥ 75 plateau at 1.25% with no gain.
-- C = 1.0 confirmed optimal (E040): C > 10 catastrophically overfits, L1 penalty terrible (13.52%).
+**Pass 1 (standard aug):** each train image is added in four variants — original, horizontal flip, brightness × U[0.7, 1.3], Gaussian noise σ = 15 — and a PCA + LogReg is fit. Brightness jitter is the key contributor because session 03 has systematically different lighting from 01 / 02.
 
-### 4.2 Augmentation: Two-Pass Adversarial Training (E033)
+**Pass 2 (adversarial rotation):** for each training image the Pass-1 model is queried at 5 angles in [−10°, +10°] and the angle with **minimum |logit|** (maximum model uncertainty) is picked. A rotated copy at that angle is added to the training set; PCA + LogReg is refit on the combined set. The mechanism explains why this works where random rotation fails: random rotation samples uniformly from the manifold and PCA fits the *average*, leaving the hard angles unmodelled. Adversarial selection inverts that — each sample contributes the rotation the *current* eigenspace fails on, so principal components are reallocated towards the directions of model uncertainty. This is the same idea as hard-negative mining in SVMs, applied to PCA.
 
-**Pass 1 — standard augmentation:**
-Each training image is presented in four variants: original, horizontal flip, brightness jitter ×U[0.7, 1.3], and Gaussian noise σ=15. A full PCA + LogReg model is fit on this set.
+|                       | Clean EER         | rot ±15° (E033 ablation) | rot ±15° (E051 re-stress) |
+|-----------------------|------------------:|-------------------------:|--------------------------:|
+| +All (E007)           | 0.97 ± 0.86%      | 13.70%                   | 19.00%                    |
+| **+AdvRot (E033)**    | **0.51 ± 0.36%**  | **1.04%**                | **7.59%**                 |
 
-Brightness jitter is the key contributor — session 03 has systematically different lighting from sessions 01 and 02. Exposing the model to brightness variation during training directly targets this source of session mismatch.
+Clean EER halves; rotation robustness improves by 2.5–13× depending on the measurement protocol (both are reported honestly — the true eval-time number likely sits between). Fold-0 pathology (2.08 %) was eliminated (0.69 %). **Random** rotation augmentation does *not* work (E015) — it is the adversarial *selection* that forces the eigenspace to span the rotation manifold. JPEG / blur / contrast / HE-CLAHE / Cutout 20×20 (E052) all regressed; the current set is at the empirical ceiling.
 
-**Pass 2 — adversarial rotation:**
-For each training image, the current model is queried at 5 angles in [−10°, +10°]. The angle with the **lowest |logit|** (maximum model uncertainty) is selected. A rotated copy at that angle is added to the training set. PCA + LogReg is refit on the combined original+augmented+adversarial set.
+**TTA:** original + horizontal flip, scores averaged. Rotation TTA was rejected (E030) — it corrupts the eigenface projection at inference and raises clean EER. E043 flip+rot5 TTA appeared to help but was a measurement artefact and failed to replicate (E049); E033 remains the image flagship.
 
-This is a per-sample adversarial perturbation — the model trains on its own worst case for each image, learning rotation-invariant features. Effect:
-
-| Config | Clean EER | rot±15° EER |
-|--------|-----------|-------------|
-| +All (E007) | 0.97 ± 0.86% | 7.31% |
-| **+AdvRot (E033)** | **0.51 ± 0.36%** | **7.59%** → fold-level **1.04%** (E033 report) |
-
-Clean EER improved 2× (0.97% → 0.51%) and rotation robustness improved 13× at rot±15° (13.70% → 1.04%). Fold 0 pathology (previously 2.08%) was eliminated (0.69%).
-
-**Why random rotation augmentation does not work (E015):** Randomly rotating images during standard training does not help — the model sees many rotated versions but none are adversarially selected. The adversarial selection is what forces the eigenspace to span the rotation manifold.
-
-**More aggressive augmentations rejected (E015, E041):** JPEG, blur, contrast, HE/CLAHE all hurt. Cutout 20×20 was tested (E052) but regressed clean EER from 0.51% → 1.71% — PCA eigenspace is destroyed by masking large patches. The current set is at the empirical ceiling.
-
-### 4.3 Test-Time Augmentation
-
-Each eval image is scored at original + horizontal flip. The two scores are averaged. Zero cost to clean EER, consistent with the flip augmentation seen during training.
-
-Rotation TTA was tested (E030) and rejected — rotating PCA inputs at inference corrupts the eigenface projection, raising clean EER from 0.97% to 1.25%.
-
-**Final image system:** PCA 50 + LogReg + flip + brightness + noise + adversarial rotation (2-pass) + flip TTA → **0.51 ± 0.36% EER, min-DCF 0.0102**
+**Final image system:** PCA-50 + LogReg + flip / brightness / noise / adv-rot aug + flip TTA → **0.51 ± 0.36 % EER, min-DCF 0.0102**.
 
 ---
 
-## 5. Multimodal Fusion System
+## 5. Fusion
 
-### 5.1 Calibration
+Each modality's raw LLR is Platt-scaled (`LogReg C = 1e6, class_weight='balanced'`) on OOF scores to bring the three streams to a common scale. The fused score is a weighted sum on the 2-simplex (`w_mfcc + w_lpcc + w_image = 1`, all ≥ 0), with weights chosen on a 51×51 grid that **directly minimises OOF EER** (logistic-regression fusion is MLE-optimal but not EER-optimal — the near-rank-2 design matrix, r(MFCC, LPCC) = 0.843, limits it).
 
-Before fusion, each modality's raw LLR scores are calibrated independently using Platt scaling (LogisticRegression C=1e6, class_weight='balanced') fitted on OOF scores. This brings all three score streams to a common scale regardless of their raw dynamic ranges.
+| Fusion                           | OOF EER        | min-DCF | Notes                               |
+|----------------------------------|---------------:|--------:|-------------------------------------|
+| MFCC + image (E009)              | 3.75%          | 0.0750  | bimodal baseline                    |
+| LPCC + image (E023)              | 0.52%          | 0.0104  | LPCC replaces MFCC                  |
+| MFCC + LPCC + image (E026/E027)  | 0.26%          | 0.0052  | trimodal, MFCC as tiebreaker        |
+| **E052 + E033 + MFCC (E039)**    | **0.26% (0 errors)** | **0.0052** | **new backbones, 0/222**    |
 
-### 5.2 Score-Level Fusion
-
-Three calibrated score streams are combined via a weighted sum:
-
-```
-score_fused = w_mfcc * s_mfcc + w_lpcc * s_lpcc + w_image * s_image
-```
-
-Weights are optimised over a 51×51 simplex grid (w_mfcc + w_lpcc + w_image = 1, all ≥ 0) to minimise OOF EER directly.
-
-**Evolution of fusion system:**
-
-| System | OOF EER | min-DCF | Notes |
-|--------|---------|---------|-------|
-| MFCC + image (E009) | 3.75% | 0.0750 | First fusion attempt |
-| LPCC + image (E023) | 0.52% | 0.0104 | LPCC replaces MFCC |
-| MFCC + LPCC + image (E026/E027) | 0.26% | 0.0052 | Trimodal: MFCC adds tiebreaker |
-| **E037+E033+MFCC backbones (E039)** | **0.26% (0 errors)** | **0.0052** | New backbones, 0 errors |
-
-**Why trimodal:** MFCC and LPCC have complementary error patterns across folds (fold 0: LPCC struggles, MFCC compensates; fold 1: reversed). Pairwise correlation r(MFCC, LPCC) = 0.843 — high but not 1.0. MFCC carries residual signal that halves OOF EER from 0.52% to 0.26% when added to the LPCC+image pair.
-
-**Why simplex grid over logistic regression fusion:** LogReg fusion converged to 0.52% OOF — MLE-optimal but not EER-optimal. The near-rank-2 design matrix (high MFCC-LPCC correlation) limits LogReg's ability to find the sharp ranking optimum. The simplex grid directly minimises EER on the OOF scores.
-
-**Optimal weights (E039):** w_image = 0.66, w_lpcc = 0.34, w_mfcc ≈ 0.00. Image gets the most weight because it achieves lower clean EER and the signals are complementary. MFCC weight approaches zero — confirmed redundant given the tied-covariance LPCC backbone — but kept so the grid search can verify this per run.
-
-**Final fusion system:** MFCC + LPCC(E052) + image(E033), Platt calib, simplex grid → **0.26% OOF EER, 0 errors out of 222 samples, min-DCF 0.0052**
+**Weights (E039):** `w_image = 0.66, w_lpcc = 0.34, w_mfcc ≈ 0.00`. Image dominates because it achieves the lower clean EER; LPCC contributes complementary audio signal — its errors are disjoint from the image stream's (0 of 222 samples are misranked by both, see §6 stress test). MFCC's weight collapses to zero because MFCC and LPCC OOF scores are correlated at r = 0.843: both are cepstral representations of the same vocal-tract physics, just via different front-ends, so once tied-covariance LPCC enters the fusion the third stream is rank-deficient. We retain MFCC so the grid can re-verify this per run — if a future LPCC weakness emerges, MFCC will pick up weight automatically. Quality-aware gating (E032), product-rule fusion (E046/E048) and score ensembles (E045) all regressed.
 
 ---
 
-## 6. Generalization and Overfitting Prevention
+## 6. Generalization and overfitting defences
 
-1. **Model capacity matched to data size.** UBM-32 yields ~5400 frames/component on ~170 training utterances (UBM-64 regressed, E010). PCA 50 confirmed optimal — higher dimensionality over-parameterizes logistic regression on 222 samples (E011).
+The assignment specifically requires *způsob řešení generalizace a omezení přetrénování*. Each defence below targets a named overfitting risk.
 
-2. **Augmentation strictly on train fold.** Val samples are always original (unaugmented). Scaler, PCA, and UBM are all refit on the augmented train set for each fold. Consistently enforced across all 52 experiments.
-
-3. **Permutation test (E029).** Shuffling train labels before augmentation and retraining yielded image EER 49.49 ± 13.64% and audio EER 55.26 ± 20.67% — both near chance. This confirms models learn from labels, not from auxiliary structure in the data.
-
-4. **One variable changed per experiment.** Each of the 52 experiments changed exactly one axis (feature type, augmentation type, covariance type, model hyperparameter, fusion architecture). This prevents confounding and ensures each finding is interpretable.
-
-5. **Stress testing (E028, E051).** Both flagships were evaluated under photometric and geometric degradations. E033 image system: JPEG/blur/downsample all at 0.51% = clean. E052 audio system: speed absorbed by TTA, codec now at 3.33% (down from 13.33% before E052). Known weaknesses: image rotation >15° (7.59%) and occlusion (11.06%).
+1. **Risk: model capacity > data size → memorisation.** Defence: UBM-32 (~5 400 frames/component, well into the asymptotic regime) over UBM-64 which regressed in E010; PCA-50 on 222 samples (n &lt; p_full but adequate for a 2-class linear boundary, sweep in E011); tied covariance shares 1 521 parameters across 32 components vs 48 672 for full per-component (E037).
+2. **Risk: validation leakage from session/speaker overlap.** Defence: 3-fold session/speaker-aware LOSO splits, one fold = one held-out target session + 2–3 held-out non-target identities. All scaler / PCA / UBM statistics are refit per fold; augmentation is applied only to the train fold and val samples are always raw (across all 53 experiments).
+3. **Risk: hidden label leakage via auxiliary channels** (filename order, file size, etc.). Defence: permutation test (E029) — shuffling train labels before retraining yields 49 % image / 55 % audio val EER, both inside the chance window, so flagships learn from labels rather than artefacts.
+4. **Risk: post-hoc rationalization of multi-axis changes.** Defence: each of the 53 experiments moves exactly one knob (feature / aug / covariance / hyperparameter / fusion rule), with the hypothesis written before the run. Findings are attributable to the changed axis.
+5. **Risk: unseen test-time distribution shift** (the assignment warns evaluation data will contain noise / quality changes). Defence: stress testing on val (E028, E051, E052) — E033 image is photometrically bulletproof (JPEG q = 15 / blur σ = 3 / downsample 40 → 80 all at clean 0.51 %); residual weaknesses are geometric (rotation > 15°: 7.6 %) and occlusion (11 %). E052 audio survives speed via TTA and 4 kHz codec stress via codec-augmentation (13.33 % → 3.33 %); moderate noise ≤ 10 dB SNR manageable.
 
 ---
 
-## 7. Results Summary
+## 7. Results
 
-| System | CV EER mean ± std | CV min-DCF |
-|--------|-------------------|------------|
-| Audio baseline (E001): MFCC + GMM | 17.92 ± 7.81% | 0.2250 |
-| Audio (E008): MFCC + UBM/MAP + aug | 4.21 ± 3.11% | 0.0509 |
-| Audio (E037): LPCC + tied cov | 0.69 ± 0.98% | 0.0139 |
-| **Audio flagship (E052):** LPCC + tied cov + pitch aug + codec aug + speed TTA | **0.46 ± 0.65%** | **0.0092** |
-| Image baseline (E004): PCA + LogReg | 4.49 ± 4.26% | 0.0565 |
-| Image (E007): PCA + LogReg + aug | 0.97 ± 0.86% | 0.0194 |
-| **Image flagship (E033):** PCA + LogReg + aug + adversarial rotation | **0.51 ± 0.36%** | **0.0102** |
-| **Fusion flagship (E039):** trimodal E052+E033+MFCC | **0.26% OOF (0 errors)** | **0.0052** |
+| System                                                        | CV EER mean ± std | CV min-DCF |
+|---------------------------------------------------------------|------------------:|-----------:|
+| Audio baseline — MFCC + GMM (E001)                            | 17.92 ± 7.81 %    | 0.2250     |
+| Audio — MFCC + UBM/MAP + aug (E008)                           | 4.21 ± 3.11 %     | 0.0509     |
+| Audio — LPCC + tied cov (E037)                                | 0.69 ± 0.98 %     | 0.0139     |
+| **Audio flagship — LPCC + tied + pitch&codec aug + speed TTA (E052)** | **0.46 ± 0.65 %** | **0.0092** |
+| Image baseline — PCA + LogReg (E004)                          | 4.49 ± 4.26 %     | 0.0565     |
+| Image — PCA + LogReg + aug (E007)                             | 0.97 ± 0.86 %     | 0.0194     |
+| **Image flagship — PCA + LogReg + aug + adv-rot (E033)**      | **0.51 ± 0.36 %** | **0.0102** |
+| **Fusion flagship — trimodal E052 + E033 + MFCC (E039)**      | **0.26 % OOF (0 errors)** | **0.0052** |
 
----
+**Story arc:** MFCC + GMM baseline → UBM + MAP → better features (LPCC) → tied covariance → codec robustness → adversarial image aug → trimodal fusion.
 
-## 8. Submission Files
-
-| File | System | CV EER | Purpose |
-|------|--------|--------|---------|
-| `audio_mfcc_gmm_baseline.txt` | E001 | 17.92% | Lecture baseline anchor |
-| `audio_mfcc_ubm_map_aug.txt` | E008 | 4.21% | MFCC+UBM+aug: shows UBM+MAP contribution |
-| `audio_lpcc_tied_codecaug.txt` | E052 | **0.46%** | **Audio flagship** |
-| `image_pca_baseline.txt` | E004 | 4.49% | Image anchor (no aug) |
-| `image_pca_adv_rot.txt` | E033 | **0.51%** | **Image flagship** |
-| `fusion_trimodal.txt` | E039 | **0.26% OOF** | **Fusion flagship** |
-
-Story arc: MFCC+GMM baseline → UBM+MAP → better features (LPCC) → tied covariance → codec robustness → adversarial image aug → trimodal fusion.
-
----
-
-## 9. How to Reproduce
-
-### Requirements
-
-```bash
-git clone <repo>
-cd project
-uv sync          # installs all dependencies from uv.lock
-```
-
-### Generate results on evaluation data
-
-```bash
-# Audio flagship (LPCC + tied cov + codec aug + speed TTA)
-uv run predict_audio.py --eval-dir <eval_dir> --output results/audio_lpcc_tied_codecaug.txt
-
-# Image flagship (PCA + adversarial rotation aug + flip TTA)
-uv run predict_image.py --eval-dir <eval_dir> --output results/image_pca_adv_rot.txt
-
-# Fusion flagship (trimodal)
-uv run predict_fusion.py --eval-dir <eval_dir> --output results/fusion_trimodal.txt
-```
-
-Each script trains on the full train+dev pool internally, then scores all files in `--eval-dir`. Output format: `<stem> <score> <decision>` per line. Score higher = more confident target. Decision threshold calibrated at prior 0.5 via min-DCF on OOF scores.
-
-### Validate format and score ordering
-
-```bash
-uv run python self_test.py   # runs all 3 scripts on a mini eval set, checks 10/10 decisions
-```
-
-### Key source files
-
-| File | Purpose |
-|------|---------|
-| `src/data/splits.py` | Session/speaker-aware LOSO splitter |
-| `src/eval/metrics.py` | EER, min-DCF, hard decisions |
-| `predict_audio.py` | Audio flagship (E052): full training + inference pipeline |
-| `predict_image.py` | Image flagship (E033): full training + inference pipeline |
-| `predict_fusion.py` | Trimodal fusion (E039): full training + inference pipeline |
-| `self_test.py` | Format and ordering validation |
+Reproduction: `uv sync && uv run predict_fusion.py --eval-dir <dir> --output results/fusion_trimodal.txt`. Output per line: `<stem> <score> <hard_decision>`, hard decision at the Bayes threshold (prior 0.5) calibrated on OOF min-DCF. Details, full ablation history, and figures in `experiments/` and `docs/figures/`.
