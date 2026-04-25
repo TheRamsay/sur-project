@@ -156,4 +156,4 @@ uv run predict_fusion.py  --eval-dir <dir> --output results/fusion_trimodal.txt
 
 Each output file contains one line per evaluation sample with three whitespace-separated fields: stem, score (higher = more confident target), and a hard decision (`1` = target, `0` = non-target) thresholded at the Bayes optimum for prior 0.5, calibrated on OOF min-DCF.
 
-I submit six result files (the maximum allowed). Three are the flagships above; the other three are intermediate checkpoints kept for ablation evidence: `audio_mfcc_gmm_baseline.txt` (E001), `audio_mfcc_ubm_map_aug.txt` (E008), and `image_pca_baseline.txt` (E004). The story they tell, when read top-to-bottom, is the arc of §7.
+I submit six result files (the maximum allowed). Three are the flagships above. The other three are intermediate checkpoints kept for ablation evidence: `audio_mfcc_gmm_baseline.txt` (E001), `audio_mfcc_ubm_map_aug.txt` (E008), and `image_pca_baseline.txt` (E004). The story they tell, when read top-to-bottom, is the arc of §7.
