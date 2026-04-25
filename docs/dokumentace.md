@@ -1,10 +1,12 @@
 ---
-title: "SUR 2025/2026: Target-person detector for `m431`"
+title: "SUR 2025/2026: Multimodal target-speaker detector"
 author: "Dominik Huml (`xhumld00`)"
-date: "May 2026"
+date: "\\today"
 papersize: a4
 geometry: "top=1.6cm,bottom=1.6cm,left=1.8cm,right=1.8cm"
 fontsize: 10pt
+header-includes:
+  - \usepackage{booktabs}
 ---
 
 ## 1. Task
@@ -39,8 +41,6 @@ The relevance factor `r` trades off per-speaker observations against the UBM pri
 | diagonal   | 4.35 ± 4.40 %     | 0.0870  | 1 248      |
 | **tied**   | **0.69 ± 0.98 %** | **0.0139** | **1 521** |
 | full       | 1.48 ± 0.92 %     | 0.0296  | 48 672     |
-
-![GMM covariance ablation: tied covariance is 6× better than diagonal at only ~20 % more parameters.](figures/fig1_covariance_ablation.pdf){ width=85% }
 
 LPCC coefficients are strongly correlated, since adjacent cepstra share formant structure. Diagonal ignores this. Full overfits at 48 672 parameters. Tied is the right compromise. It captures the off-diagonal structure once and shares it across all 32 components.
 
@@ -107,16 +107,32 @@ I organise the safeguards into five risks, each paired with its defence.
 
 ## 7. Results
 
-| System                                                                | CV EER mean ± std         | CV min-DCF |
-|-----------------------------------------------------------------------|--------------------------:|-----------:|
-| Audio baseline (MFCC + GMM, E001)                                     | 17.92 ± 7.81 %            | 0.2250     |
-| Audio (MFCC + UBM/MAP + aug, E008)                                    | 4.21 ± 3.11 %             | 0.0509     |
-| Audio (LPCC + tied cov, E037)                                         | 0.69 ± 0.98 %             | 0.0139     |
-| **Audio flagship (LPCC + tied + pitch&codec aug + speed TTA, E052)**  | **0.46 ± 0.65 %**         | **0.0092** |
-| Image baseline (PCA + LogReg, E004)                                   | 4.49 ± 4.26 %             | 0.0565     |
-| Image (PCA + LogReg + aug, E007)                                      | 0.97 ± 0.86 %             | 0.0194     |
-| **Image flagship (PCA + LogReg + aug + adv-rot, E033)**               | **0.51 ± 0.36 %**         | **0.0102** |
-| **Fusion flagship (trimodal E052 + E033 + MFCC, E039)**               | **0.26 % OOF (0 errors)** | **0.0052** |
+\begin{table}[h]
+\centering
+\renewcommand{\arraystretch}{1.15}
+\setlength{\tabcolsep}{10pt}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{System} & \textbf{EER (\%)} & \textbf{min-DCF} \\
+\midrule
+\multicolumn{3}{@{}l}{\textit{Audio}} \\
+\quad MFCC + GMM \hfill \textsc{e001}                                  & 17.92 $\pm$ 7.81 & 0.2250 \\
+\quad MFCC + UBM/MAP + aug \hfill \textsc{e008}                        &  4.21 $\pm$ 3.11 & 0.0509 \\
+\quad LPCC + tied covariance \hfill \textsc{e037}                      &  0.69 $\pm$ 0.98 & 0.0139 \\
+\quad \textbf{LPCC + tied + pitch\,\&\,codec + speed TTA} \hfill \textsc{e052} & \textbf{0.46 $\pm$ 0.65} & \textbf{0.0092} \\
+\addlinespace[2pt]
+\multicolumn{3}{@{}l}{\textit{Image}} \\
+\quad PCA + LogReg \hfill \textsc{e004}                                &  4.49 $\pm$ 4.26 & 0.0565 \\
+\quad PCA + LogReg + aug \hfill \textsc{e007}                          &  0.97 $\pm$ 0.86 & 0.0194 \\
+\quad \textbf{PCA + LogReg + aug + AdvRot} \hfill \textsc{e033}        & \textbf{0.51 $\pm$ 0.36} & \textbf{0.0102} \\
+\addlinespace[2pt]
+\multicolumn{3}{@{}l}{\textit{Fusion}} \\
+\quad \textbf{Trimodal (E052 + E033 + MFCC)} \hfill \textsc{e039}      & \textbf{0.26}$^{\,\dagger}$ & \textbf{0.0052} \\
+\bottomrule
+\end{tabular}
+\vspace{2pt}
+\\ {\footnotesize $^{\dagger}$\,OOF on the full 222-sample pool (0 / 222 errors). Audio and image rows are mean $\pm$ std across the 3 LOSO folds.}
+\end{table}
 
 The arc: MFCC + GMM baseline $\to$ UBM/MAP $\to$ LPCC $\to$ tied covariance $\to$ codec aug $\to$ adversarial rotation on the image side $\to$ trimodal score-level fusion.
 
