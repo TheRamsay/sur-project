@@ -40,7 +40,7 @@ The relevance factor `r` trades off per-speaker observations against the UBM pri
 | **tied**   | **0.69 ± 0.98 %** | **0.0139** | **1 521** |
 | full       | 1.48 ± 0.92 %     | 0.0296  | 48 672     |
 
-![GMM covariance ablation: tied covariance is 6× better than diagonal at only ~20 % more parameters.](figures/fig1_covariance_ablation.pdf){ width=70% }
+![GMM covariance ablation: tied covariance is 6× better than diagonal at only ~20 % more parameters.](figures/fig1_covariance_ablation.pdf){ width=85% }
 
 LPCC coefficients are strongly correlated, since adjacent cepstra share formant structure. Diagonal ignores this. Full overfits at 48 672 parameters. Tied is the right compromise. It captures the off-diagonal structure once and shares it across all 32 components.
 
@@ -48,7 +48,7 @@ LPCC coefficients are strongly correlated, since adjacent cepstra share formant 
 
 Train-time augmentation applies two transforms to the LPCC pipeline. Pitch shift $\pm$1–2 semitones (E025) trains the UBM to ignore F0 while preserving formant ratios. The same shift hurt MFCC in E014 because the Mel filterbank already smooths pitch. Codec simulation (E052) downsamples each utterance to 8 kHz and back, destroying frequencies above 4 kHz where many discriminative formants live. The unaugmented system reached 0.46 % clean but collapsed to 13.33 % under bandwidth-limited val. Codec aug closes that gap at zero clean cost.
 
-![Audio stress test (E051 + E052 paired). Codec aug closes the bandwidth failure mode (13.33 $\to$ 3.33 %) and incidentally improves moderate-noise robustness with no clean-side regression.](figures/alt_d_audio_robustness.pdf){ width=75% }
+![Audio stress test (E051 + E052 paired). Codec aug closes the bandwidth failure mode (13.33 $\to$ 3.33 %) and incidentally improves moderate-noise robustness with no clean-side regression.](figures/alt_d_audio_robustness.pdf){ width=92% }
 
 At inference I apply speed-only test-time augmentation (E031). The utterance is scored at 1.0$\times$, 0.9$\times$ and 1.1$\times$, and the three LLRs are averaged. Speed retiming preserves the spectral envelope so the LPC all-pole filter (and LPCC) is invariant. Pitch shift at inference, on the other hand, drifts the cepstrum onto a manifold the UBM was never trained on, and fold 0 collapses to 9.86 %. Pitch is the right train-time augmentation but the wrong test-time one.
 
@@ -68,7 +68,7 @@ Augmentation is what made the image system competitive, and it runs in two passe
 
 **Pass 2.** For each training image I query the Pass-1 model at five angles in [$-$10°, +10°] and pick the rotation that lands closest to the decision boundary. A rotated copy at that angle is added and PCA + LogReg is refit. Random rotation (E015) samples uniformly, so PCA fits easy angles and ignores hard ones. Adversarial selection inverts this. Principal components are reallocated towards the directions of model uncertainty. It is hard-negative mining for PCA.
 
-![Image stress test (E051). AdvRot is photometrically bulletproof (JPEG, blur, downsample stay at clean 0.51 %) and halves the geometric weaknesses. JPEG, blur, contrast, HE/CLAHE and Cutout 20$\times$20 (E052) all regressed when added on top.](figures/alt_a_image_robustness.pdf){ width=72% }
+![Image stress test (E051). AdvRot is photometrically bulletproof (JPEG, blur, downsample stay at clean 0.51 %) and halves the geometric weaknesses. JPEG, blur, contrast, HE/CLAHE and Cutout 20$\times$20 (E052) all regressed when added on top.](figures/alt_a_image_robustness.pdf){ width=90% }
 
 At inference I average the original and its horizontal flip. Rotation TTA was rejected (E030, eigenface corruption). E043 (flip + small-rotation TTA) was rejected after E049 failed to replicate the +0.23 pp gain.
 
@@ -85,11 +85,11 @@ Each modality produces a raw LLR (audio) or logit (image) on its own scale. I fi
 | MFCC + LPCC + image (E026/E027)     | 0.26 %              | 0.0052  | trimodal, MFCC as tiebreaker     |
 | **E052 + E033 + MFCC (E039)**       | **0.26 % (0 errors)** | **0.0052** | **new backbones, 0 of 222**  |
 
-![DET curves for the three modalities and the trimodal fusion. The fusion dot sits at the lower-left corner of the visible region. On this CV split it makes 0 errors out of 222 samples.](figures/fig6_det_curve.pdf){ width=65% }
+![DET curves for the three modalities and the trimodal fusion. The fusion dot sits at the lower-left corner of the visible region. On this CV split it makes 0 errors out of 222 samples.](figures/fig6_det_curve.pdf){ width=80% }
 
 The grid converges to `w_image` = 0.66, `w_lpcc` = 0.34, `w_mfcc` $\approx$ 0. Image dominates as the lower-EER modality. LPCC adds complementary signal. 0 of 222 samples are misranked by both audio and image at their thresholds, so even though each modality misses a few targets the misses are disjoint. MFCC's weight collapses to zero because MFCC and LPCC OOF scores are correlated at `r` = 0.843 (both cepstral views of the same physics). I keep MFCC in the grid so that a future LPCC weakness can re-recruit it automatically. Quality-aware gating (E032), product-rule fusion (E046, E048) and score-level ensembles (E045) all regressed against simple weighted averaging.
 
-![Audio × image complementarity at per-stream EER thresholds: 15 samples are rescued by audio alone, 5 by image alone, none are missed by both. This disjoint failure pattern is exactly what makes weighted-sum fusion reach 0 errors.](figures/alt_c_complementarity.pdf){ width=63% }
+![Audio × image complementarity at per-stream EER thresholds: 15 samples are rescued by audio alone, 5 by image alone, none are missed by both. This disjoint failure pattern is exactly what makes weighted-sum fusion reach 0 errors.](figures/alt_c_complementarity.pdf){ width=95% }
 
 ## 6. Generalization and overfitting defences
 
@@ -120,7 +120,7 @@ I organise the safeguards into five risks, each paired with its defence.
 
 The arc: MFCC + GMM baseline $\to$ UBM/MAP $\to$ LPCC $\to$ tied covariance $\to$ codec aug $\to$ adversarial rotation on the image side $\to$ trimodal score-level fusion.
 
-![Project arc across 53 experiments. Each modality flagship dropped roughly two orders of magnitude from its anchor. Audio: 17.92 $\to$ 0.46 % (−97 %). Image: 4.49 $\to$ 0.51 % (−89 %). Fusion: 3.75 $\to$ 0.26 % (−93 %).](figures/alt_b_progression.pdf){ width=78% }
+![Project arc across 53 experiments. Each modality flagship dropped roughly two orders of magnitude from its anchor. Audio: 17.92 $\to$ 0.46 % (−97 %). Image: 4.49 $\to$ 0.51 % (−89 %). Fusion: 3.75 $\to$ 0.26 % (−93 %).](figures/alt_b_progression.pdf){ width=95% }
 
 ### Reproduction
 
