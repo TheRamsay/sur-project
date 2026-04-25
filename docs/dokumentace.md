@@ -87,7 +87,7 @@ Each modality produces a raw LLR (audio) or logit (image) on its own scale. I fi
 | MFCC + LPCC + image (E026/E027)     | 0.26 %              | 0.0052  | trimodal, MFCC as tiebreaker     |
 | **E052 + E033 + MFCC (E039)**       | **0.26 % (0 errors)** | **0.0052** | **new backbones, 0 of 222**  |
 
-![DET curves for the three modalities and the trimodal fusion. The fusion dot sits at the lower-left corner of the visible region. On this CV split it makes 0 errors out of 222 samples.](figures/fig6_det_curve.pdf){ width=80% }
+![DET curves for the three modalities and the trimodal fusion. The fusion dot sits at the lower-left corner of the visible region. On this CV split it makes 0 errors out of 222 samples.](figures/fig6_det_curve.pdf){ width=64% }
 
 The grid converges to `w_image` = 0.66, `w_lpcc` = 0.34, `w_mfcc` $\approx$ 0. Image dominates as the lower-EER modality. LPCC adds complementary signal. 0 of 222 samples are misranked by both audio and image at their thresholds, so even though each modality misses a few targets the misses are disjoint. MFCC's weight collapses to zero because MFCC and LPCC OOF scores are correlated at `r` = 0.843 (both cepstral views of the same physics). I keep MFCC in the grid so that a future LPCC weakness can re-recruit it automatically. Quality-aware gating (E032), product-rule fusion (E046, E048) and score-level ensembles (E045) all regressed against simple weighted averaging.
 
