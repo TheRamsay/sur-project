@@ -134,16 +134,32 @@ assignment.txt          — course brief (Czech, do not edit)
 README.md               — user-facing intro
 CLAUDE.md               — this file
 pyproject.toml / uv.lock — uv-managed deps; Python 3.12
-main.py                 — entrypoint placeholder
+predict_audio.py        — CLI wrapper for the E052 audio system
+predict_image.py        — CLI wrapper for the E033 image system
+predict_fusion.py       — CLI wrapper for the E039 trimodal fusion
+self_test.py            — mini-eval sanity check on the 3 predict scripts
+generate_synthetic_m431.py — synthesises mock target data for self_test
 data/                   — provided corpus (gitignored)
 notebooks/              — exploratory / visual analysis
   data.ipynb            — manifest, per-session / per-modality stats
 src/
-  data/                 — manifests, split logic, fold generation
-  features/             — MFCC / filterbank / image feature extractors
-  models/               — per-modality classifiers
-  fusion/               — score / feature / decision fusion
-  eval/                 — metrics, thresholding, OOF helpers
+  data/
+    manifest.py         — find_wav / find_png
+    splits.py           — session/speaker-aware GroupKFold (LOSO)
+  features/
+    audio.py            — extract_lpcc, extract_mfcc (+ Δ + ΔΔ + CMN)
+    image.py            — load_image (80×80 grayscale, flat float32)
+  augment/
+    audio.py            — pitch / speed / codec / noise
+    image.py            — flip / brightness / noise / rotate / adv-rot search
+  models/
+    ubm_map.py          — UBM + means-only MAP + LPCC/MFCC pipelines + speed TTA
+    pca_logreg.py       — image PCA + LogReg + 2-pass adv-rot pipeline + flip TTA
+  fusion/
+    calibration.py      — Platt scaling
+    weights.py          — 51×51 simplex grid search minimising OOF EER
+  eval/
+    metrics.py          — EER, min-DCF, hard-decision threshold finder
 experiments/            — one .md per experiment (see experiments/README.md)
 results/                — result files for IS upload (gitignored for binaries)
 logs/                   — runtime logs (gitignored)
