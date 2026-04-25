@@ -76,7 +76,7 @@ Augmentation is what made the image system competitive, and it runs in two passe
 
 **Pass 1.** I add each training image in four versions: the original, a horizontal flip, the image scaled by a random brightness factor in U[0.7, 1.3], and the image plus Gaussian pixel noise at σ = 15. A fresh PCA + LogReg is fit on the combined set. Brightness jitter is the key contributor here: session 03 (the held-out target session in fold 2) has systematically different lighting from sessions 01 and 02, and brightness scaling is the only standard augmentation that crosses that gap.
 
-**Pass 2.** For each training image I query the Pass-1 model at five angles in [−10°, +10°] and pick the angle with minimum |logit|, i.e. the angle of maximum model uncertainty. A rotated copy at that angle is added to the training set, and PCA + LogReg is refit on the expanded set. The mechanism explains why this works where random rotation does not (E015). Random rotation samples uniformly from the rotation manifold and PCA fits the average. The easy angles dominate and the hard ones stay unmodelled. Adversarial selection inverts that. Each sample contributes the rotation the current eigenspace fails on, so principal components are reallocated towards the directions of model uncertainty. It is hard-negative mining, applied to PCA.
+**Pass 2.** For each training image I query the Pass-1 model at five angles in [−10°, +10°] and pick the rotation that lands closest to the decision boundary, i.e. the angle where the model is least confident. A rotated copy at that angle is added to the training set, and PCA + LogReg is refit on the expanded set. The mechanism explains why this works where random rotation does not (E015). Random rotation samples uniformly from the rotation manifold and PCA fits the average. The easy angles dominate and the hard ones stay unmodelled. Adversarial selection inverts that. Each sample contributes the rotation the current eigenspace fails on, so principal components are reallocated towards the directions of model uncertainty. It is hard-negative mining, applied to PCA.
 
 The figure below summarises the head-to-head against the +All baseline (E051 stress test, same seed and protocol for both rows). E033 is photometrically bulletproof and roughly halves rotation EER. JPEG, blur, contrast, HE/CLAHE and Cutout 20×20 (E052) all regressed when added on top, so the current set sits at the empirical ceiling.
 
@@ -105,7 +105,7 @@ The grid converges to `w_image = 0.66, w_lpcc = 0.34, w_mfcc ≈ 0.00`. Image do
 
 ## 6. Generalization and overfitting defences
 
-The brief specifically asks how I handle generalization and limit overfitting. I frame the answer as five concrete risks with the corresponding defence for each.
+I organise the safeguards into five risks, each paired with the defence that targets it.
 
 **Risk 1: model capacity exceeds data size.** With 222 samples, three folds and dozens of moving parts, this is the obvious one. The defences are scale-matched. UBM-32 leaves roughly 5 400 frames per component, which is well into the asymptotic regime, and I rejected UBM-64 in E010 because it regressed. PCA-50 keeps the linear classifier in a subspace that the 2-class boundary can fit reliably, and I confirmed the choice with a sweep (E011). Tied covariance shares 1 521 parameters across 32 GMM components, while full per-component covariance has 48 672 and overfits.
 
