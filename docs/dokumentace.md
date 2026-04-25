@@ -25,7 +25,7 @@ I report EER and min-DCF at prior 0.5, mean ± std across folds. For fusion I po
 
 ### 3.1 Front-end
 
-Speaker verification on ~170 training utterances is the small-data regime, where front-end inductive bias matters more than expressive power. LPCC parameterises the vocal-tract transfer function directly via an all-pole LPC model and the cepstral recursion. That is the physical quantity that separates speakers. MFCC's Mel filterbank, by contrast, was designed for content recognition where speaker identity is the nuisance to suppress. I ablated MFCC, FBank, SDC, PLP and LPCC under identical UBM-MAP conditions. LPCC 13 + $\Delta$ + $\Delta\Delta$ at LPC order 12 won on both EER and min-DCF (4.21 % MFCC vs 3.33 % LPCC). Higher-dimensional alternatives over-parameterised GMM-32 for this dataset size, and order 12 had a 2.5 pp moat over neighbours, matching the `fs/1000 + 2` rule for 16 kHz speech.
+Speaker verification on ~148 training utterances per fold is the small-data regime, where front-end inductive bias matters more than expressive power. LPCC parameterises the vocal-tract transfer function directly via an all-pole LPC model and the cepstral recursion. That is the physical quantity that separates speakers. MFCC's Mel filterbank, by contrast, was designed for content recognition where speaker identity is the nuisance to suppress. I ablated MFCC, FBank, SDC, PLP and LPCC under identical UBM-MAP conditions. LPCC 13 + $\Delta$ + $\Delta\Delta$ at LPC order 12 won on both EER and min-DCF (4.21 % MFCC vs 3.33 % LPCC). Higher-dimensional alternatives over-parameterised GMM-32 for this dataset size, and order 12 had a 2.5 pp moat over neighbours, matching the `fs/1000 + 2` rule for 16 kHz speech.
 
 Cepstral mean normalisation (CMN) is applied per utterance to remove the convolutional channel response (microphone, room, level), which is constant within an utterance but varies across sessions. CMVN regressed by 2 pp (E012) because the UBM covariance already absorbs per-utterance scale, so CMN is retained and CMVN is not.
 
@@ -155,3 +155,5 @@ uv run predict_fusion.py  --eval-dir <dir> --output results/fusion_trimodal.txt
 ```
 
 Each output file contains one line per evaluation sample with three whitespace-separated fields: stem, score (higher = more confident target), and a hard decision (`1` = target, `0` = non-target) thresholded at the Bayes optimum for prior 0.5, calibrated on OOF min-DCF.
+
+I submit six result files (the maximum allowed). Three are the flagships above; the other three are intermediate checkpoints kept for ablation evidence: `audio_mfcc_gmm_baseline.txt` (E001), `audio_mfcc_ubm_map_aug.txt` (E008), and `image_pca_baseline.txt` (E004). The story they tell, when read top-to-bottom, is the arc of §7.
