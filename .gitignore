@@ -38,3 +38,4 @@ eval_synthetic/
 .idea/
 *.swp
 .env
+session_logs/
