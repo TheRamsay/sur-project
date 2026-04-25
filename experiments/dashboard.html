@@ -320,22 +320,22 @@
   <div class="sc sf">
     <div class="sc-label"><span class="sc-dot"></span>Fusion EER</div>
     <div class="sc-val">0.26<span class="unit">%</span></div>
-    <div class="sc-sub">E027 trimodal · OOF</div>
+    <div class="sc-sub">E039 trimodal · OOF · 0 errors</div>
   </div>
   <div class="sc si">
     <div class="sc-label"><span class="sc-dot"></span>Image EER</div>
-    <div class="sc-val">0.97<span class="unit">%</span></div>
-    <div class="sc-sub">E007 · PCA + LogReg + aug</div>
+    <div class="sc-val">0.51<span class="unit">%</span></div>
+    <div class="sc-sub">E033 · PCA + adv-rot aug</div>
   </div>
   <div class="sc sa">
     <div class="sc-label"><span class="sc-dot"></span>Audio EER</div>
-    <div class="sc-val">1.67<span class="unit">%</span></div>
-    <div class="sc-sub">E025+E031 · LPCC + pitch + TTA</div>
+    <div class="sc-val">0.46<span class="unit">%</span></div>
+    <div class="sc-sub">E052 · LPCC+tied cov+codecAug</div>
   </div>
   <div class="sc sn">
     <div class="sc-label"><span class="sc-dot"></span>Experiments</div>
-    <div class="sc-val">31</div>
-    <div class="sc-sub">4 flagships · 8 negative</div>
+    <div class="sc-val">52</div>
+    <div class="sc-sub">8 flagships · 24 negative</div>
   </div>
   <div class="sc sd">
     <div class="sc-label"><span class="sc-dot"></span>Deadline</div>
@@ -358,15 +358,15 @@
       <div class="list-head">
         <div class="panel-head" style="padding:0">
           <div class="panel-title">All Experiments</div>
-          <div class="panel-meta" id="expCount">31 shown</div>
+          <div class="panel-meta" id="expCount">52 shown</div>
         </div>
         <div class="filters">
-          <button class="fb on" data-f="all">All<span class="n">31</span></button>
-          <button class="fb" data-f="audio">Audio<span class="n">20</span></button>
-          <button class="fb" data-f="image">Image<span class="n">9</span></button>
-          <button class="fb" data-f="fusion">Fusion<span class="n">4</span></button>
-          <button class="fb" data-f="flagship">Flagship<span class="n">4</span></button>
-          <button class="fb" data-f="fail">Negative<span class="n">8</span></button>
+          <button class="fb on" data-f="all">All<span class="n">52</span></button>
+          <button class="fb" data-f="audio">Audio<span class="n">27</span></button>
+          <button class="fb" data-f="image">Image<span class="n">16</span></button>
+          <button class="fb" data-f="fusion">Fusion<span class="n">9</span></button>
+          <button class="fb" data-f="flagship">Flagship<span class="n">8</span></button>
+          <button class="fb" data-f="fail">Negative<span class="n">24</span></button>
         </div>
       </div>
       <div class="exp-scroll" id="expGrid"></div>
@@ -801,7 +801,280 @@ const EXPS = [
     hypothesis:"Scoring val utterances with speed-augmented views and averaging LLR reduces variance.",
     result:"+speed_tta wins: 1.94→1.67% EER, min-DCF 0.0389→0.0333. Pitch TTA collapses fold 0.",
     interpretation:"Speed is pitch-preserving → LPCC formants unchanged across 3 views. Averaging reduces variance.",
-    next:"Adopted in predict_audio.py and predict_fusion.py. All experiments complete."
+    next:"Adopted in predict_audio.py and predict_fusion.py."
+  },
+  {
+    id:"E032", slug:"fusion-quality-metrics", modality:"fusion",
+    title:"Quality-aware fusion (sharpness/SNR weighting)",
+    eer_mean:0.78, eer_std:null, min_dcf:null,
+    folds:[], eer_display:"0.78% OOF",
+    verdict:"fail", flagship:false,
+    date:"2026-04-21", related:["E027","E039"],
+    model:"E027 + quality metrics (sharpness/SNR): softmax/threshold/linear weighting",
+    hypothesis:"Quality-based weighting should improve fusion when one modality is degraded.",
+    result:"0.78% OOF (all strategies tie). No improvement on clean data.",
+    interpretation:"Quality metrics don't correlate with recognition difficulty. 100% error rate on changed decisions.",
+    next:"Fixed weights (E039/E027) are optimal. Quality-aware fusion rejected."
+  },
+  {
+    id:"E033", slug:"image-adv-rotation", modality:"image",
+    title:"PCA 50+LogReg + adversarial rotation ±10°",
+    eer_mean:0.51, eer_std:0.36, min_dcf:null,
+    folds:[null,null,null], eer_display:"0.51 ± 0.36%",
+    verdict:"flagship", flagship:true,
+    date:"2026-04-21", related:["E007","E039","E051","E052"],
+    model:"PCA 50 + LogReg + adversarial rotation ±10° (2-pass training)",
+    hypothesis:"Training with adversarially hard rotations should teach rotation-invariant eigenfaces.",
+    result:"0.51 ± 0.36%. −1.02pp vs E007. rot15: 13.70%→1.04% (13×). Fold 0 pathology solved.",
+    interpretation:"Adversarial rotation aug is super-additive with brightness aug. Teaches PCA to extract tilt-robust features.",
+    next:"New image flagship. Adopt in predict_image.py."
+  },
+  {
+    id:"E034", slug:"audio-z-norm", modality:"audio",
+    title:"LPCC+Pitch + Z-norm (20-speaker cohort)",
+    eer_mean:6.20, eer_std:null, min_dcf:0.0677,
+    folds:[], eer_display:"6.20% OOF",
+    verdict:"fail", flagship:false,
+    date:"2026-04-21", related:["E025","E037"],
+    model:"E025 + cohort Z-norm (20-speaker cohort)",
+    hypothesis:"Z-norm normalizes session/channel effects via cohort score distribution.",
+    result:"6.20% OOF EER (= raw). min-DCF 0.0677 improves vs 0.1240 raw.",
+    interpretation:"Dataset too small for effective cohort estimation. Z-norm adds noise rather than signal to EER.",
+    next:"Z-norm not adopted. Raw LPCC scores stay."
+  },
+  {
+    id:"E035", slug:"fusion-feature-concat", modality:"fusion",
+    title:"MFCC+LPCC feature-level concat (78d) + UBM-MAP",
+    eer_mean:null, eer_std:null, min_dcf:null,
+    folds:[], eer_display:"FAILED",
+    verdict:"fail", flagship:false,
+    date:"2026-04-21", related:["E022","E026"],
+    model:"MFCC+LPCC 78d concatenation + UBM-MAP",
+    hypothesis:"Feature-level fusion should capture joint spectral representations in a single UBM.",
+    result:"FAILED — dimension mismatch bug. MFCC and LPCC have different frame counts per utterance.",
+    interpretation:"Frame-level concat requires aligned frame extraction. Score-level fusion is more robust for this setup.",
+    next:"Score-level fusion (E039) preferred. Feature-level deferred."
+  },
+  {
+    id:"E036", slug:"image-pyramid-pca", modality:"image",
+    title:"Pyramid PCA 80/40/20 (87d) + LogReg",
+    eer_mean:1.53, eer_std:0.52, min_dcf:null,
+    folds:[null,null,null], eer_display:"1.53 ± 0.52%",
+    verdict:"fail", flagship:false,
+    date:"2026-04-21", related:["E007","E011"],
+    model:"PCA pyramid: 80×80 + 40×40 + 20×20 (87d) + LogReg",
+    hypothesis:"Multi-resolution features might capture appearance at different scales.",
+    result:"1.53 ± 0.52% EER. Worse than E007+aug (0.97%). Best variant: pyramid_3.",
+    interpretation:"Good augmentation outperforms multi-scale features. Single-scale PCA+aug is optimal.",
+    next:"Pyramid PCA rejected. E007/E033 stays."
+  },
+  {
+    id:"E037", slug:"audio-tied-covariance", modality:"audio",
+    title:"LPCC + UBM-32 tied covariance",
+    eer_mean:0.69, eer_std:0.98, min_dcf:null,
+    folds:[2.08,null,null], eer_display:"0.69 ± 0.98%",
+    verdict:"flagship", flagship:true,
+    date:"2026-04-21", related:["E025","E042","E052"],
+    model:"UBM 32 + MAP r=16, LPCC+Δ+ΔΔ, tied covariance (1521 shared params)",
+    hypothesis:"Tied covariance shares a single scatter matrix → stronger regularization for small data.",
+    result:"0.69 ± 0.98%. 6.3× better than diagonal (4.35%). Fold 0: 10.56%→2.08%.",
+    interpretation:"Tied cov is the right inductive bias for small data: 1521 shared params vs 48k full. GMM learns orthogonal means.",
+    next:"New audio flagship. Add speed TTA → E042."
+  },
+  {
+    id:"E038", slug:"audio-gmm-ensemble", modality:"audio",
+    title:"E037 tied cov + GMM ensemble (3–5 seeds)",
+    eer_mean:null, eer_std:null, min_dcf:null,
+    folds:[], eer_display:"TIMED OUT",
+    verdict:"fail", flagship:false,
+    date:"2026-04-21", related:["E037"],
+    model:"E037 × 3–5 random seeds, score averaging",
+    hypothesis:"Seed ensemble should reduce GMM initialization variance.",
+    result:"Timed out. No results. 3–5× inference cost for marginal expected gain.",
+    interpretation:"E037 tied cov already solved fold 0. Ensemble offers no marginal benefit at 3–5× cost.",
+    next:"Not adopted. E037 stays."
+  },
+  {
+    id:"E039", slug:"fusion-new-backbones", modality:"fusion",
+    title:"E037+E033+MFCC trimodal (fusion flagship)",
+    eer_mean:0.26, eer_std:null, min_dcf:0.0052,
+    folds:[], eer_display:"0.26% OOF",
+    verdict:"flagship", flagship:true,
+    date:"2026-04-21", related:["E027","E037","E033","E052"],
+    model:"LPCC tied cov (E037) + image adv-rot (E033) + MFCC, Platt calib + simplex grid",
+    hypothesis:"Stronger backbones (E037/E033) should maintain or improve trimodal fusion.",
+    result:"0.26% OOF, 0 errors. Weights: img=0.66, lpcc=0.34, mfcc=0.00. MFCC redundant.",
+    interpretation:"Tied cov LPCC replaces E025 without EER regression. MFCC weight → 0 with stronger LPCC backbone.",
+    next:"Fusion flagship locked. Update predict_fusion.py with E037+E033 backbones."
+  },
+  {
+    id:"E040", slug:"image-logreg-c-sweep", modality:"image",
+    title:"E033 + LogReg C sweep {0.1,1,10,100} + L1",
+    eer_mean:0.97, eer_std:0.86, min_dcf:null,
+    folds:[null,null,null], eer_display:"0.97 ± 0.86% (C=0.1/1.0)",
+    verdict:"neutral", flagship:false,
+    date:"2026-04-21", related:["E033","E011"],
+    model:"PCA 50 + LogReg C∈{0.1,1,10,100}, L1/L2 penalty",
+    hypothesis:"Tighter regularization (C<1) might improve cross-session generalization.",
+    result:"C=0.1 ties C=1.0 (0.97%). C>10 catastrophic. L1 penalty: 13.52% EER.",
+    interpretation:"C=1.0 confirmed optimal. L2 preferred over L1 for correlated PCA features.",
+    next:"C=1.0 locked. E033 hyperparameters unchanged."
+  },
+  {
+    id:"E041", slug:"image-he-clahe", modality:"image",
+    title:"E033 + HE/CLAHE preprocessing",
+    eer_mean:3.01, eer_std:null, min_dcf:null,
+    folds:[], eer_display:"3.01% (raw wins)",
+    verdict:"fail", flagship:false,
+    date:"2026-04-22", related:["E033","E007"],
+    model:"PCA 50 + LogReg + histogram equalization / CLAHE",
+    hypothesis:"Contrast normalization should handle session-level lighting variation.",
+    result:"HE/CLAHE triples EER (3.01% vs 0.97%). Raw pixels + brightness aug is optimal.",
+    interpretation:"Brightness augmentation already covers lighting variation. HE distorts the PCA eigenspace.",
+    next:"Raw pixels confirmed. HE/CLAHE rejected."
+  },
+  {
+    id:"E042", slug:"audio-speed-tta-tied", modality:"audio",
+    title:"E037 tied cov + speed TTA (3 views)",
+    eer_mean:0.46, eer_std:0.65, min_dcf:null,
+    folds:[null,null,null], eer_display:"0.46 ± 0.65%",
+    verdict:"ok", flagship:false,
+    date:"2026-04-22", related:["E037","E044","E052"],
+    model:"UBM 32 tied cov + MAP r=16, LPCC+Δ+ΔΔ, speed TTA (0.9×/1.0×/1.1×)",
+    hypothesis:"Speed TTA at inference should reduce variance further on tied cov system.",
+    result:"0.46 ± 0.65% EER (−0.23pp vs E037 0.69%). Speed TTA complements tied covariance.",
+    interpretation:"Speed TTA is pitch-preserving for LPCC → safe at inference. Superseded by E052 which adds codec aug.",
+    next:"Add codec bandwidth aug → E052."
+  },
+  {
+    id:"E043", slug:"image-tta-flip-rot5", modality:"image",
+    title:"E033 + TTA flip+rot5 (5 views) [INVALID]",
+    eer_mean:0.74, eer_std:0.57, min_dcf:null,
+    folds:[null,null,null], eer_display:"0.74 ± 0.57% (invalid)",
+    verdict:"fail", flagship:false,
+    date:"2026-04-22", related:["E033","E049"],
+    model:"E033 + TTA: flip + rot±5° averaged log-odds",
+    hypothesis:"TTA with mild rotation should reduce geometric variance at inference.",
+    result:"0.74 ± 0.57% claimed — but compared vs wrong E033 baseline (0.97% instead of 0.51%). E049 failed to replicate.",
+    interpretation:"Invalid result — compared against a broken E033 replication. E033 (0.51%) remains best.",
+    next:"E033 remains image flagship. No image TTA adopted."
+  },
+  {
+    id:"E044", slug:"audio-map-r-tied", modality:"audio",
+    title:"MAP r sweep on tied cov (r∈{4,8,16,32,64})",
+    eer_mean:0.46, eer_std:0.65, min_dcf:null,
+    folds:[null,null,null], eer_display:"0.46 ± 0.65% (r=16)",
+    verdict:"neutral", flagship:false,
+    date:"2026-04-22", related:["E042","E013"],
+    model:"UBM 32 tied cov + MAP r∈{4,8,16,32,64}",
+    hypothesis:"Optimal r may differ for tied vs diagonal covariance.",
+    result:"r=16 confirmed optimal. Same result as diagonal ablation (E013).",
+    interpretation:"r=16 is robust to covariance type. The plateau at r∈{4,8,16} holds for tied cov too.",
+    next:"r=16 locked. No further MAP ablations."
+  },
+  {
+    id:"E045", slug:"audio-score-ensemble", modality:"audio",
+    title:"MFCC+LPCC+PLP score ensemble",
+    eer_mean:3.23, eer_std:null, min_dcf:null,
+    folds:[], eer_display:"3.23% OOF",
+    verdict:"fail", flagship:false,
+    date:"2026-04-22", related:["E022","E020","E021"],
+    model:"MFCC + LPCC + PLP, Platt calib + grid",
+    hypothesis:"Three-feature audio ensemble might leverage complementary spectral representations.",
+    result:"3.23% OOF. LPCC alone (2.45% OOF) wins. Adding MFCC/PLP dilutes LPCC.",
+    interpretation:"Calibration asymmetry between features kills ensemble. LPCC already captures what matters.",
+    next:"LPCC single-system stays. Three-feature ensemble not viable."
+  },
+  {
+    id:"E046", slug:"fusion-product-rule", modality:"fusion",
+    title:"E042+E043 trimodal product rule [mislabeled]",
+    eer_mean:0.52, eer_std:null, min_dcf:null,
+    folds:[], eer_display:"0.52% OOF",
+    verdict:"fail", flagship:false,
+    date:"2026-04-22", related:["E039","E048"],
+    model:"E042+E043+MFCC product rule (geometric mean of posteriors)",
+    hypothesis:"Product rule (Bayes assumption) is more principled than linear weight search.",
+    result:"0.52% OOF — worse than E039 (0.26%). Mislabeled flagship: compared vs broken E039 replication (2.97%).",
+    interpretation:"Product rule inferior to Platt calibration + simplex grid. E039 remains fusion flagship.",
+    next:"E039 confirmed optimal. Linear calib + simplex grid stays."
+  },
+  {
+    id:"E047", slug:"audio-vtln", modality:"audio",
+    title:"VTLN warping α∈[0.9,1.1]",
+    eer_mean:null, eer_std:null, min_dcf:null,
+    folds:[], eer_display:"31.45% (buggy impl)",
+    verdict:"fail", flagship:false,
+    date:"2026-04-22", related:["E018","E037"],
+    model:"E037 + VTLN frequency warping α∈[0.9,1.1]",
+    hypothesis:"Vocal tract length normalization via frequency warping should normalize speaker differences.",
+    result:"31.45% EER — catastrophic. Bug: warped cepstral coefficients directly instead of mel-filter frequencies.",
+    interpretation:"VTLN must be applied in the frequency domain before cepstral analysis, not post-hoc to the coefficients.",
+    next:"VTLN not adopted. Requires correct frequency-domain reimplementation."
+  },
+  {
+    id:"E048", slug:"fusion-bimodal-product", modality:"fusion",
+    title:"E042+E043 bimodal product rule",
+    eer_mean:4.59, eer_std:null, min_dcf:null,
+    folds:[], eer_display:"4.59% OOF",
+    verdict:"fail", flagship:false,
+    date:"2026-04-22", related:["E046","E039"],
+    model:"E042+E043 bimodal product rule (no MFCC)",
+    hypothesis:"Bimodal product rule without MFCC might avoid MFCC calibration issues.",
+    result:"4.59% OOF — worse than trimodal E046 (0.52%) and E039 (0.26%). Product rule + no calibration fails.",
+    interpretation:"Trimodal always better than bimodal. Platt calibration + grid is essential for score fusion.",
+    next:"E039 confirmed optimal fusion. No further product rule experiments."
+  },
+  {
+    id:"E049", slug:"image-more-tta", modality:"image",
+    title:"E043 + more TTA views (rot7/9/bright/noise)",
+    eer_mean:4.38, eer_std:null, min_dcf:null,
+    folds:[], eer_display:"4.38% (replication fails)",
+    verdict:"fail", flagship:false,
+    date:"2026-04-22", related:["E043","E033"],
+    model:"E043 + TTA rot±7°/±9°/brightness/noise views",
+    hypothesis:"More TTA views should further improve robustness.",
+    result:"4.38% vs claimed 0.74% in E043. E043 baseline not replicable.",
+    interpretation:"E043 result was fragile/invalid. Confirms E033 (0.51%) is the definitive image flagship.",
+    next:"No image TTA. E033 is the definitive image flagship."
+  },
+  {
+    id:"E051", slug:"stress-test-e033-e042", modality:"image",
+    title:"Stress test: E033 image + E042 audio (16 conditions)",
+    eer_mean:null, eer_std:null, min_dcf:null,
+    folds:[], eer_display:"see detail",
+    verdict:"neutral", flagship:false,
+    date:"2026-04-22", related:["E033","E042","E052"],
+    model:"E033 image + E042 audio under 8 degradation conditions each",
+    hypothesis:"Quantify flagship robustness to expected eval degradations.",
+    result:"Image: jpeg/blur/downsample=0.51% (robust). rot15=7.59%. occlude=11.06%. Audio: codec8kHz=13.33%, noise10dB=6.85%, speed absorbed by TTA.",
+    interpretation:"E033 photometrically bulletproof. Codec is audio's main vulnerability — LPCC formants above 4kHz destroyed by 8kHz BW limit.",
+    next:"Add codec bandwidth augmentation to audio → E052."
+  },
+  {
+    id:"E052", slug:"audio-codec-aug", modality:"audio",
+    title:"E042 + codec bandwidth aug (audio flagship)",
+    eer_mean:0.46, eer_std:0.65, min_dcf:null,
+    folds:[null,null,null], eer_display:"0.46 ± 0.65% clean",
+    verdict:"flagship", flagship:true,
+    date:"2026-04-22", related:["E042","E051","E039"],
+    model:"UBM 32 tied cov + MAP r=16, LPCC+Δ+ΔΔ, speed TTA + codec bandwidth aug",
+    hypothesis:"Training on bandwidth-limited copies (8kHz BW) teaches the model to survive codec degradation.",
+    result:"Clean EER unchanged (0.46%). Codec EER 13.33%→3.33% (−10pp, −75%). Image Cutout aug rejected (+1.20pp regression).",
+    interpretation:"Codec aug teaches LPCC to work without high-frequency formants. Clean performance unaffected — robustness is free.",
+    next:"Audio flagship locked. predict_audio.py and predict_fusion.py updated. Self-test re-passed."
+  },
+  {
+    id:"E053", slug:"audio-2s-truncation", modality:"audio",
+    title:"Hard 2-second prefix truncation",
+    eer_mean:0.83, eer_std:0.68, min_dcf:0.0167,
+    folds:[0.00,1.67,0.83], eer_display:"0.83 ± 0.68%",
+    verdict:"fail", flagship:false,
+    date:"2026-04-22", related:["E052"],
+    model:"E052 + discard first 2 s of every wav at load time (train + val)",
+    hypothesis:"Removing pre-speech noise by hard-cutting the first 2 s should improve EER.",
+    result:"Clean EER 0.46%→0.83% (+0.37pp). Codec EER 3.33%→2.78% (marginal, within noise). Clean DCF 0.0093→0.0167.",
+    interpretation:"Truncation redistributes fold errors rather than eliminating them. Fixes fold 0 (session 03 likely has noise at start) but breaks folds 1–2 whose speakers start immediately. CMN already handles stationary pre-speech noise per utterance. The codec EER mean improvement is a fold-shuffling artefact.",
+    next:"E052 remains audio flagship. No further truncation experiments warranted."
   }
 ];
 
@@ -946,14 +1219,14 @@ function showDetail(id) {
 function buildLeaderboard() {
   const c = document.getElementById("leaderboard");
   const rows = [
-    {lbl:"Trimodal fusion + speed TTA", m:"fusion", eer:"0.26%", v:0.26,  dcf:"0.0052", exp:"E027+E031"},
-    {lbl:"PCA + LogReg + aug",          m:"image",  eer:"0.97%", v:0.97,  dcf:"0.0194", exp:"E007"},
-    {lbl:"LPCC + pitch + speed TTA",    m:"audio",  eer:"1.67%", v:1.67,  dcf:"0.0333", exp:"E025+E031"},
-    {lbl:"LPCC + image fusion",         m:"fusion", eer:"0.52%", v:0.52,  dcf:"0.0104", exp:"E023"},
-    {lbl:"LPCC baseline",               m:"audio",  eer:"3.33%", v:3.33,  dcf:"0.0333", exp:"E020"},
-    {lbl:"MFCC + UBM/MAP + aug",        m:"audio",  eer:"4.21%", v:4.21,  dcf:"0.0509", exp:"E008"},
-    {lbl:"PCA + LogReg (no aug)",       m:"image",  eer:"4.49%", v:4.49,  dcf:"0.0565", exp:"E004"},
-    {lbl:"MFCC + GMM baseline",         m:"audio",  eer:"17.92%",v:17.92, dcf:"0.2250", exp:"E001"},
+    {lbl:"Trimodal fusion (E039)",       m:"fusion", eer:"0.26%", v:0.26,  dcf:"0.0052", exp:"E039"},
+    {lbl:"LPCC + tied cov + codec aug",  m:"audio",  eer:"0.46%", v:0.46,  dcf:"—",      exp:"E052"},
+    {lbl:"PCA + LogReg + adv-rot",       m:"image",  eer:"0.51%", v:0.51,  dcf:"—",      exp:"E033"},
+    {lbl:"LPCC + image bimodal fusion",  m:"fusion", eer:"0.52%", v:0.52,  dcf:"0.0104", exp:"E023"},
+    {lbl:"LPCC + tied cov (no TTA)",     m:"audio",  eer:"0.69%", v:0.69,  dcf:"—",      exp:"E037"},
+    {lbl:"PCA + LogReg + brightness aug",m:"image",  eer:"0.97%", v:0.97,  dcf:"0.0194", exp:"E007"},
+    {lbl:"LPCC + pitch + speed TTA",     m:"audio",  eer:"1.67%", v:1.67,  dcf:"0.0333", exp:"E031"},
+    {lbl:"MFCC + GMM baseline",          m:"audio",  eer:"17.92%",v:17.92, dcf:"0.2250", exp:"E001"},
   ];
   rows.forEach((b,i) => {
     const row = document.createElement("div");
@@ -985,7 +1258,7 @@ function buildChart() {
     if (e.modality==="audio") ap.push({x, y:e.eer_mean});
     else if (e.modality==="image") ip.push({x, y:e.eer_mean});
   });
-  const fp = [{x:9,y:3.75},{x:23,y:0.52},{x:26,y:0.26},{x:27,y:0.26}];
+  const fp = [{x:9,y:3.75},{x:23,y:0.52},{x:26,y:0.26},{x:27,y:0.26},{x:32,y:0.78},{x:39,y:0.26},{x:46,y:0.52},{x:48,y:4.59}];
   const fs = new Set(EXPS.filter(e=>e.flagship).map(e=>parseInt(e.id.replace("E",""))));
 
   const pcolor = (pts,mod) => pts.map(p =>
@@ -1009,9 +1282,9 @@ function buildChart() {
         pointRadius:prad(ip,"image"), pointHoverRadius:5, tension:0.35, fill:false },
       { label:"Fusion", data:fp, borderColor:"#c4a7ff", borderWidth:1.5,
         backgroundColor:"transparent",
-        pointBackgroundColor:fp.map((_,i)=>i===3?"#fbbf24":"#c4a7ff"),
+        pointBackgroundColor:fp.map(p=>(p.x===27||p.x===39)?"#fbbf24":"#c4a7ff"),
         pointBorderColor:"transparent",
-        pointRadius:[2.5,2.5,2.5,5], pointHoverRadius:5, tension:0.35, fill:false, borderDash:[3,3] },
+        pointRadius:fp.map(p=>(p.x===27||p.x===39)?5:2.5), pointHoverRadius:5, tension:0.35, fill:false, borderDash:[3,3] },
     ]},
     options:{
       responsive:true, maintainAspectRatio:false,
@@ -1037,7 +1310,7 @@ function buildChart() {
         }
       },
       scales:{
-        x:{ type:"linear", min:0, max:32,
+        x:{ type:"linear", min:0, max:53,
           ticks:{color:"#5a5a66",font:{size:10,family:"'JetBrains Mono',monospace"},stepSize:5,padding:6},
           grid:{color:"rgba(255,255,255,0.03)",drawTicks:false},
           border:{display:false}
