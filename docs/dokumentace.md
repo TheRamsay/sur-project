@@ -52,8 +52,6 @@ Codec robustness was the motivating problem. The non-augmented audio system reac
 | E042 baseline          | 0.46 ± 0.65 %     | 13.33 ± 3.79 %     |
 | **+ codec aug (E052)** | **0.46 ± 0.65 %** | **3.33 ± 4.14 %**  |
 
-![Codec-stress robustness: codec augmentation drops bandwidth-limited EER from 13.3 % to 3.3 % at zero clean cost.](figures/fig3_codec_robustness.pdf){ width=85% }
-
 The training UBM now sees a mixture of clean and bandwidth-limited frames, so its covariance covers both regimes and the LLR remains informative when the high-frequency formants are missing.
 
 At inference I apply speed-only test-time augmentation (E031). Each utterance is scored at the original speed, 0.9×, and 1.1×, and the three LLRs are averaged. The pitch/speed asymmetry is informative. Speed perturbation retimes the signal but preserves the spectral envelope, so the LPC all-pole filter (and hence LPCC) is invariant; averaging across speeds is averaging over benign perturbations. Pitch shift, on the other hand, alters the source-filter relationship: F0 leaks into the LPC residual, the cepstral coefficients drift onto a manifold the UBM was never trained on, and fold 0 collapses to 9.86 %. Pitch is therefore the right augmentation at training time (it widens the UBM's support) but the wrong one at inference. I also tested 2 s prefix truncation (E053) and rejected it: CMN already suppresses stationary pre-speech noise, and the apparent codec-EER improvement turned out to be a fold-reshuffling artefact.
@@ -81,6 +79,8 @@ Augmentation is what made the image system competitive, and it runs in two passe
 
 Clean EER nearly halves (0.97 % to 0.51 %), and rotation robustness improves by 2.5–13× depending on the measurement protocol. I report both numbers because the gap between them tells me something about eval-time uncertainty: the true number is probably somewhere between the two. JPEG, blur, contrast, HE/CLAHE and Cutout 20×20 (E052) all regressed when added on top, so the current set sits at the empirical ceiling.
 
+![Image stress test: AdvRot is photometrically bulletproof (JPEG, blur, downsample stay at clean 0.51 %) and halves the geometric weaknesses.](figures/alt_a_image_robustness.pdf){ width=90% }
+
 At inference I average the original and its horizontal flip. Rotation TTA was tested and rejected (E030) because it corrupts the eigenface projection at scoring time and raises clean EER. E043 (flip + small-rotation TTA) appeared to help by 0.23 pp but later replication runs (E049) failed to reproduce the result, so I did not adopt it.
 
 The final image system reaches **0.51 ± 0.36 % EER** at **min-DCF 0.0102**.
@@ -99,6 +99,8 @@ Each modality produces a raw LLR (audio) or logit (image) that lives on its own 
 ![DET curves for the three modalities and the trimodal fusion. The fusion star sits at the lower-left corner of the visible region; on this CV split it makes 0 errors out of 222 samples.](figures/fig6_det_curve.pdf){ width=80% }
 
 The grid converges to `w_image = 0.66, w_lpcc = 0.34, w_mfcc ≈ 0.00`. Image dominates because it is the lower-EER modality. LPCC contributes complementary signal: 0 of 222 samples are misranked by both audio and image at their respective thresholds, so even though each modality misses a few targets they don't miss the same ones. MFCC's weight collapses to zero because MFCC and LPCC OOF scores are correlated at r = 0.843. Both are cepstral representations of the same vocal-tract physics via different front-ends, so once tied-covariance LPCC enters the fusion the third stream is rank-deficient. I keep MFCC in the grid so that the optimisation can re-verify this per run; if a future LPCC weakness appears, MFCC will pick up weight automatically. Quality-aware gating (E032), product-rule fusion (E046, E048) and score-level ensembles (E045) all regressed against simple weighted averaging.
+
+![Audio × image complementarity at per-stream EER thresholds: 15 samples are rescued by audio alone, 5 by image alone, none are missed by both. This disjoint failure pattern is exactly what makes weighted-sum fusion reach 0 errors.](figures/alt_c_complementarity.pdf){ width=78% }
 
 ## 6. Generalization and overfitting defences
 
@@ -128,6 +130,8 @@ The brief specifically asks how I handle generalization and limit overfitting. I
 | **Fusion flagship (trimodal E052 + E033 + MFCC, E039)**               | **0.26 % OOF (0 errors)** | **0.0052** |
 
 The arc behind these numbers is: MFCC + GMM baseline, then UBM + MAP adaptation, then better features (LPCC), then tied covariance, then train-time codec robustness, then adversarial rotation augmentation on the image side, and finally trimodal score-level fusion.
+
+![Project arc across 53 experiments: each modality flagship dropped roughly two orders of magnitude from its anchor. Audio: 17.92 → 0.46 % (−97 %). Image: 4.49 → 0.51 % (−89 %). Fusion: 3.75 → 0.26 % (−93 %).](figures/alt_b_progression.pdf){ width=95% }
 
 ### Reproduction
 
