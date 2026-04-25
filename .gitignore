@@ -39,3 +39,4 @@ eval_synthetic/
 *.swp
 .env
 session_logs/
+.claude/
