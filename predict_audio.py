@@ -22,6 +22,7 @@ from scipy.special import logsumexp
 from sklearn.linear_model import LogisticRegression
 from sklearn.mixture import GaussianMixture
 
+from src.augment.audio import aug_codec, aug_pitch
 from src.data.manifest import find_wav
 from src.data.splits import load_manifest, iter_folds_loso
 from src.eval.metrics import compute_min_dcf
@@ -30,23 +31,11 @@ from src.features.audio import extract_lpcc
 SEED = 67
 UBM_COMPONENTS = 32
 MAP_R = 16.0
-SNR_DB = 20.0
 
 
 # ---------------------------------------------------------------------------
 # Features
 # ---------------------------------------------------------------------------
-
-def _aug_pitch(y: np.ndarray, sr: int, rng: np.random.Generator) -> np.ndarray:
-    n_steps = float(rng.choice([-2, -1, 1, 2]))
-    return librosa.effects.pitch_shift(y, sr=sr, n_steps=n_steps)
-
-
-def _aug_codec(y: np.ndarray, sr: int) -> np.ndarray:
-    """E052: simulate codec bandwidth loss (downsample to 8kHz and back)."""
-    y_down = librosa.resample(y, orig_sr=sr, target_sr=8000)
-    return librosa.resample(y_down, orig_sr=8000, target_sr=sr)
-
 
 def _extract_frames(df, data_dir: Path, augment: bool, seed: int):
     rng = np.random.default_rng(seed)
@@ -55,8 +44,8 @@ def _extract_frames(df, data_dir: Path, augment: bool, seed: int):
         y_wav, sr = librosa.load(find_wav(row["stem"], data_dir), sr=None, mono=True)
         wavs = [y_wav]
         if augment:
-            wavs += [_aug_pitch(y_wav, sr, rng),    # E025: pitch shift
-                     _aug_codec(y_wav, sr)]           # E052: codec bandwidth
+            wavs += [aug_pitch(y_wav, sr, rng),    # E025: pitch shift
+                     aug_codec(y_wav, sr)]           # E052: codec bandwidth
         for y_aug in wavs:
             frames = extract_lpcc(y_aug, sr)
             all_X.append(frames)

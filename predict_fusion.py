@@ -19,13 +19,20 @@ from pathlib import Path
 
 import librosa
 import numpy as np
-from scipy.ndimage import rotate as nd_rotate
 from scipy.special import logsumexp
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
 from sklearn.mixture import GaussianMixture
 from sklearn.preprocessing import StandardScaler
 
+from src.augment.audio import aug_codec, aug_noise, aug_pitch, aug_speed
+from src.augment.image import (
+    aug_brightness,
+    aug_flip,
+    aug_noise as aug_image_noise,
+    aug_rotate,
+    find_adversarial_rotation,
+)
 from src.data.manifest import find_png, find_wav
 from src.data.splits import load_manifest, iter_folds_loso
 from src.eval.metrics import compute_eer, compute_min_dcf
@@ -35,35 +42,8 @@ from src.features.image import load_image
 SEED           = 67
 UBM_COMPONENTS = 32
 MAP_R          = 16.0
-SNR_DB         = 20.0
 N_PCA          = 50
 C_LOGREG       = 1.0
-
-
-# ---------------------------------------------------------------------------
-# MFCC audio (E008)
-# ---------------------------------------------------------------------------
-
-def _aug_noise(y, rng):
-    p = np.mean(y**2) + 1e-10
-    return y + rng.normal(0, np.sqrt(p / 10**(SNR_DB/10)), len(y)).astype(y.dtype)
-
-def _aug_speed(y, rng):
-    return librosa.effects.time_stretch(y, rate=rng.uniform(0.9, 1.1))
-
-
-# ---------------------------------------------------------------------------
-# LPCC audio (E025 +Pitch)
-# ---------------------------------------------------------------------------
-
-def _aug_pitch(y, sr, rng):
-    n_steps = float(rng.choice([-2, -1, 1, 2]))
-    return librosa.effects.pitch_shift(y, sr=sr, n_steps=n_steps)
-
-def _aug_codec(y, sr):
-    """E052: simulate codec bandwidth loss (downsample to 8kHz and back)."""
-    y_down = librosa.resample(y, orig_sr=sr, target_sr=8000)
-    return librosa.resample(y_down, orig_sr=8000, target_sr=sr)
 
 
 # ---------------------------------------------------------------------------
@@ -93,7 +73,7 @@ def _train_mfcc(df, data_dir, augment, seed):
         y_wav, sr = librosa.load(find_wav(row["stem"], data_dir), sr=None, mono=True)
         wavs = [y_wav]
         if augment:
-            wavs += [_aug_noise(y_wav, rng), _aug_speed(y_wav, rng)]
+            wavs += [aug_noise(y_wav, rng), aug_speed(y_wav, rng)]
         for y_aug in wavs:
             f = extract_mfcc(y_aug, sr)
             X_list.append(f); y_list.extend([row["label"]] * len(f))
@@ -110,8 +90,8 @@ def _train_lpcc(df, data_dir, augment, seed):
         y_wav, sr = librosa.load(find_wav(row["stem"], data_dir), sr=None, mono=True)
         wavs = [y_wav]
         if augment:
-            wavs += [_aug_pitch(y_wav, sr, rng),   # E025: +Pitch
-                     _aug_codec(y_wav, sr)]          # E052: codec bandwidth
+            wavs += [aug_pitch(y_wav, sr, rng),   # E025: +Pitch
+                     aug_codec(y_wav, sr)]          # E052: codec bandwidth
         for y_aug in wavs:
             f = extract_lpcc(y_aug, sr)
             X_list.append(f); y_list.extend([row["label"]] * len(f))
@@ -145,27 +125,6 @@ def _score_lpcc(wav_path, adapted, ubm):
 # Image (E007)
 # ---------------------------------------------------------------------------
 
-def _aug_flip(x): return x.reshape(80, 80)[:, ::-1].flatten()
-def _aug_bright(x, rng): return np.clip(x * rng.uniform(0.7, 1.3), 0, 255)
-def _aug_inoise(x, rng): return np.clip(x + rng.normal(0, 15, x.shape), 0, 255)
-
-def _aug_rotate_img(x, angle):
-    return nd_rotate(x.reshape(80, 80), angle, reshape=False,
-                     order=1, mode='constant', cval=0).flatten()
-
-def _find_adversarial_rotation(x, scaler, pca, clf, max_angle=10.0, n_steps=5):
-    best_angle, worst_abs = 0.0, np.inf
-    for angle in np.linspace(-max_angle, max_angle, n_steps):
-        if abs(angle) < 0.1:
-            continue
-        logit = clf.decision_function(
-            pca.transform(scaler.transform(_aug_rotate_img(x, angle).reshape(1, -1)))
-        )[0]
-        if abs(logit) < worst_abs:
-            worst_abs, best_angle = abs(logit), angle
-    return best_angle
-
-
 def _train_image(df, data_dir, augment, seed):
     """2-pass: basic aug then adversarial rotation (E033)."""
     rng = np.random.default_rng(seed)
@@ -176,7 +135,7 @@ def _train_image(df, data_dir, augment, seed):
         orig = load_image(find_png(row["stem"], data_dir))
         vecs = [orig]
         if augment:
-            vecs += [_aug_flip(orig), _aug_bright(orig, rng), _aug_inoise(orig, rng)]
+            vecs += [aug_flip(orig), aug_brightness(orig, rng), aug_image_noise(orig, rng)]
         for v in vecs:
             X_basic.append(v); y_basic.append(row["label"])
     X_basic = np.stack(X_basic); y_basic = np.array(y_basic)
@@ -194,8 +153,8 @@ def _train_image(df, data_dir, augment, seed):
     X_adv, y_adv = [], []
     for _, row in df.iterrows():
         orig  = load_image(find_png(row["stem"], data_dir))
-        angle = _find_adversarial_rotation(orig, scaler, pca, clf)
-        X_adv.append(_aug_rotate_img(orig, angle)); y_adv.append(row["label"])
+        angle = find_adversarial_rotation(orig, scaler, pca, clf)
+        X_adv.append(aug_rotate(orig, angle)); y_adv.append(row["label"])
 
     X_all = np.vstack([X_basic, np.stack(X_adv)])
     y_all = np.concatenate([y_basic, np.array(y_adv)])

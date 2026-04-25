@@ -14,11 +14,17 @@ import argparse
 from pathlib import Path
 
 import numpy as np
-from scipy.ndimage import rotate as nd_rotate
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 
+from src.augment.image import (
+    aug_brightness,
+    aug_flip,
+    aug_noise,
+    aug_rotate,
+    find_adversarial_rotation,
+)
 from src.data.manifest import find_png
 from src.data.splits import load_manifest, iter_folds_loso
 from src.eval.metrics import compute_min_dcf
@@ -27,42 +33,6 @@ from src.features.image import load_image
 SEED = 67
 N_PCA = 50
 C_LOGREG = 1.0
-
-
-# ---------------------------------------------------------------------------
-# Features
-# ---------------------------------------------------------------------------
-
-def _aug_flip(x: np.ndarray) -> np.ndarray:
-    return x.reshape(80, 80)[:, ::-1].flatten()
-
-
-def _aug_brightness(x: np.ndarray, rng: np.random.Generator) -> np.ndarray:
-    return np.clip(x * rng.uniform(0.7, 1.3), 0, 255)
-
-
-def _aug_noise(x: np.ndarray, rng: np.random.Generator) -> np.ndarray:
-    return np.clip(x + rng.normal(0, 15, x.shape), 0, 255)
-
-
-def _aug_rotate(x: np.ndarray, angle: float) -> np.ndarray:
-    return nd_rotate(x.reshape(80, 80), angle, reshape=False,
-                     order=1, mode='constant', cval=0).flatten()
-
-
-def _find_adversarial_rotation(x: np.ndarray, scaler, pca, clf,
-                                max_angle: float = 10.0, n_steps: int = 5) -> float:
-    """Find rotation angle in [-max_angle, +max_angle] that minimises |logit| (hardest sample)."""
-    best_angle, worst_abs = 0.0, np.inf
-    for angle in np.linspace(-max_angle, max_angle, n_steps):
-        if abs(angle) < 0.1:
-            continue
-        logit = clf.decision_function(
-            pca.transform(scaler.transform(_aug_rotate(x, angle).reshape(1, -1)))
-        )[0]
-        if abs(logit) < worst_abs:
-            worst_abs, best_angle = abs(logit), angle
-    return best_angle
 
 
 # ---------------------------------------------------------------------------
@@ -79,7 +49,7 @@ def _train(df, data_dir: Path, augment: bool, seed: int):
         orig = load_image(find_png(row["stem"], data_dir))
         vecs = [orig]
         if augment:
-            vecs += [_aug_flip(orig), _aug_brightness(orig, rng), _aug_noise(orig, rng)]
+            vecs += [aug_flip(orig), aug_brightness(orig, rng), aug_noise(orig, rng)]
         for v in vecs:
             X_basic.append(v)
             y_basic.append(row["label"])
@@ -99,8 +69,8 @@ def _train(df, data_dir: Path, augment: bool, seed: int):
     X_adv, y_adv = [], []
     for _, row in df.iterrows():
         orig  = load_image(find_png(row["stem"], data_dir))
-        angle = _find_adversarial_rotation(orig, scaler, pca, clf)
-        X_adv.append(_aug_rotate(orig, angle))
+        angle = find_adversarial_rotation(orig, scaler, pca, clf)
+        X_adv.append(aug_rotate(orig, angle))
         y_adv.append(row["label"])
 
     X_all = np.vstack([X_basic, np.stack(X_adv)])
@@ -123,7 +93,7 @@ def _score_png(png_path: Path, scaler, pca, clf) -> float:
 def _score_png_tta(png_path: Path, scaler, pca, clf) -> float:
     """TTA: average original + horizontally flipped score."""
     x      = load_image(png_path)
-    x_flip = _aug_flip(x)
+    x_flip = aug_flip(x)
     score_orig = float(clf.decision_function(pca.transform(scaler.transform(x.reshape(1,-1))))[0])
     score_flip = float(clf.decision_function(pca.transform(scaler.transform(x_flip.reshape(1,-1))))[0])
     return (score_orig + score_flip) / 2
