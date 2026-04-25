@@ -7,6 +7,8 @@ geometry: "top=1.6cm,bottom=1.6cm,left=1.8cm,right=1.8cm"
 fontsize: 10pt
 header-includes:
   - \usepackage{booktabs}
+  - \usepackage{etoolbox}
+  - \AtBeginEnvironment{figure}{\centering}
 ---
 
 ## 1. Task
@@ -126,12 +128,15 @@ I organise the safeguards into five risks, each paired with its defence.
 \quad PCA + LogReg + aug \hfill \textsc{e007}                          &  0.97 $\pm$ 0.86 & 0.0194 \\
 \quad \textbf{PCA + LogReg + aug + AdvRot} \hfill \textsc{e033}        & \textbf{0.51 $\pm$ 0.36} & \textbf{0.0102} \\
 \addlinespace[2pt]
-\multicolumn{3}{@{}l}{\textit{Fusion}} \\
-\quad \textbf{Trimodal (E052 + E033 + MFCC)} \hfill \textsc{e039}      & \textbf{0.26}$^{\,\dagger}$ & \textbf{0.0052} \\
+\multicolumn{3}{@{}l}{\textit{Fusion}\,\,$^{\dagger}$} \\
+\quad MFCC + image (bimodal baseline) \hfill \textsc{e009}             &  3.75 & 0.0750 \\
+\quad LPCC + image \hfill \textsc{e023}                                &  0.52 & 0.0104 \\
+\quad MFCC + LPCC + image (E008 + E007 backbones) \hfill \textsc{e027} &  0.26 & 0.0052 \\
+\quad \textbf{Trimodal (E052 + E033 + MFCC, new backbones)} \hfill \textsc{e039} & \textbf{0.26} & \textbf{0.0052} \\
 \bottomrule
 \end{tabular}
 \vspace{2pt}
-\\ {\footnotesize $^{\dagger}$\,OOF on the full 222-sample pool (0 / 222 errors). Audio and image rows are mean $\pm$ std across the 3 LOSO folds.}
+\\ {\footnotesize $^{\dagger}$\,Fusion EER is OOF on the full 222-sample pool. The flagship E039 makes 0 / 222 errors. Audio and image rows are mean $\pm$ std across the 3 LOSO folds.}
 \end{table}
 
 The arc: MFCC + GMM baseline $\to$ UBM/MAP $\to$ LPCC $\to$ tied covariance $\to$ codec aug $\to$ adversarial rotation on the image side $\to$ trimodal score-level fusion.
