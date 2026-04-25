@@ -1,0 +1,42 @@
+# Data — provided by the course, not ours to version
+/data/
+SUR_projekt2025-2026.zip
+
+# Python
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.Python
+
+# Virtual environments
+.venv
+venv/
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.uv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Cached features / heavy artifacts (reproducible from code)
+cache/
+results/
+logs/
+
+# Generated synthetic eval data
+eval_synthetic/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+*.swp
+.env
+session_logs/
+.claude/
