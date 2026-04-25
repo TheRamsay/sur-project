@@ -53,10 +53,7 @@ At training time I apply two augmentations on top of the LPCC frames. The first 
 
 Codec robustness was the motivating problem. The non-augmented audio system reached 0.46 % clean EER but degraded to 13.33 % when the val set was bandwidth-limited at scoring time. Adding the codec simulation as a training augmentation closed most of that gap with no clean-side regression at all.
 
-| System                 | Clean EER         | Codec-stressed EER |
-|------------------------|------------------:|-------------------:|
-| E042 baseline          | 0.46 ± 0.65 %     | 13.33 ± 3.79 %     |
-| **+ codec aug (E052)** | **0.46 ± 0.65 %** | **3.33 ± 4.14 %**  |
+![Audio stress test (E051 + E052 paired). Codec aug closes the bandwidth failure mode (13.33 → 3.33 %) and incidentally improves moderate-noise robustness, with no clean-side regression. Small fast-speed regression is absorbed by speed TTA.](figures/alt_d_audio_robustness.pdf){ width=92% }
 
 The training UBM now sees a mixture of clean and bandwidth-limited frames, so its covariance covers both regimes and the LLR remains informative when the high-frequency formants are missing.
 
