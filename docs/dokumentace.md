@@ -145,7 +145,7 @@ I organise the safeguards into five risks, each paired with its defence.
 
 **Risk 1: capacity exceeds data size.** Defences are scale-matched. UBM-32 leaves ~5 400 frames per component (UBM-64 regressed, E010). PCA-50 keeps logreg in a subspace the 2-class boundary fits reliably (E011). Tied covariance has 1 521 parameters vs full at 48 672.
 
-**Risk 2: validation leaks session or speaker identity.** Defence: §2 LOSO. Per-fold scaler, PCA, UBM and MAP target are refit, augmentation is train-only, and val is always raw.
+**Risk 2: validation leaks session or speaker identity.** Defence: [Section 2](#validation-strategy) LOSO. Per-fold scaler, PCA, UBM and MAP target are refit, augmentation is train-only, and val is always raw.
 
 **Risk 3: hidden label leakage via auxiliary channels.** Defence: permutation test (E029). Shuffling train labels brought val EER to 49 % and 55 %, both at chance. The 48 to 55 pp gap to the unshuffled flagships is what makes the result trustworthy.
 
@@ -207,4 +207,4 @@ uv run predict_fusion.py  --eval-dir <dir> --output results/fusion_trimodal.txt
 
 Each output file contains one line per evaluation sample with three whitespace-separated fields: stem, score (higher = more confident target), and a hard decision (`1` = target, `0` = non-target) thresholded at the Bayes optimum for prior 0.5, calibrated on OOF min-DCF.
 
-I submit six result files (the maximum allowed). Three are the flagships above. The other three are intermediate checkpoints kept for ablation evidence: `audio_mfcc_gmm_baseline.txt` (E001), `audio_mfcc_ubm_map_aug.txt` (E008), and `image_pca_baseline.txt` (E004). The story they tell, when read top-to-bottom, is the arc of §7.
+I submit six result files (the maximum allowed). Three are the flagships above. The other three are intermediate checkpoints kept for ablation evidence: `audio_mfcc_gmm_baseline.txt` (E001), `audio_mfcc_ubm_map_aug.txt` (E008), and `image_pca_baseline.txt` (E004). The story they tell, when read top-to-bottom, is the arc of [Section 7](#results).
