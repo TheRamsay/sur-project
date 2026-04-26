@@ -190,7 +190,7 @@ The arc behind Table \ref{tab:results}: MFCC + GMM baseline $\to$ UBM/MAP $\to$ 
 \begin{figure}[ht]
 \centering
 \includegraphics[width=0.95\linewidth]{figures/alt_b_progression.pdf}
-\caption{Project arc across 53 experiments. Each modality flagship dropped roughly two orders of magnitude from its anchor. Audio: 17.92 $\to$ 0.46 \% ($-$97 \%). Image: 4.49 $\to$ 0.51 \% ($-$89 \%). Fusion: 3.75 $\to$ 0.26 \% ($-$93 \%).}
+\caption{Project arc across 53 experiments. Y-axis is EER on a log scale. Each modality flagship dropped roughly two orders of magnitude from its anchor: audio 97 \%, image 89 \%, fusion 93 \% relative EER reduction.}
 \label{fig:progression}
 \end{figure}
 
