@@ -61,7 +61,7 @@ The reason this matters: LPCC coefficients are strongly correlated since adjacen
 
 ### 3.3 Augmentation and TTA
 
-Train-time augmentation applies two transforms to the LPCC pipeline. Pitch shift \(\pm\)1–2 semitones (E025) trains the UBM to ignore F0 while preserving formant ratios. The same shift hurt MFCC in E014 because the Mel filterbank already smooths pitch. Codec simulation (E052) downsamples each utterance to 8 kHz and back, destroying frequencies above 4 kHz where many discriminative formants live. The unaugmented system reached 0.46 % clean but collapsed to 13.33 % under bandwidth-limited val. Codec aug closes that gap at zero clean cost (Figure \ref{fig:audio-stress}).
+Train-time augmentation applies two transforms to the LPCC pipeline. Pitch shift ±1–2 semitones (E025) trains the UBM to ignore F0 while preserving formant ratios. The same shift hurt MFCC in E014 because the Mel filterbank already smooths pitch. Codec simulation (E052) downsamples each utterance to 8 kHz and back, destroying frequencies above 4 kHz where many discriminative formants live. The unaugmented system reached 0.46 % clean but collapsed to 13.33 % under bandwidth-limited val. Codec aug closes that gap at zero clean cost (Figure \ref{fig:audio-stress}).
 
 \begin{figure}[ht]
 \centering
@@ -78,7 +78,7 @@ The final audio system is LPCC + tied-covariance UBM + MAP r = 16 + pitch and co
 
 ### 4.1 Features and classifier
 
-The image classifier is intentionally simple: 80\(\times\)80 grayscale crops, per-pixel standardisation, 50-D PCA, logistic regression with C = 1. LBP (E005) collapsed to 45 % EER on fold 2 under lighting shifts, since histograms are global-brightness-sensitive. Fisherfaces (E006) are capped at a 1-D projection with two classes and lose to logreg in the 50-D PCA space. Sweeps confirmed `n_pca` = 50 (E011) and `C` = 1 with L1 catastrophic (E040). Histogram equalisation and CLAHE tripled EER (E041), and pyramid multi-scale PCA lost to flat PCA + augmentation (E036). Plain PCA on standardised pixels was the empirical ceiling.
+The image classifier is intentionally simple: 80×80 grayscale crops, per-pixel standardisation, 50-D PCA, logistic regression with C = 1. LBP (E005) collapsed to 45 % EER on fold 2 under lighting shifts, since histograms are global-brightness-sensitive. Fisherfaces (E006) are capped at a 1-D projection with two classes and lose to logreg in the 50-D PCA space. Sweeps confirmed `n_pca` = 50 (E011) and `C` = 1 with L1 catastrophic (E040). Histogram equalisation and CLAHE tripled EER (E041), and pyramid multi-scale PCA lost to flat PCA + augmentation (E036). Plain PCA on standardised pixels was the empirical ceiling.
 
 ### 4.2 Augmentation: two-pass adversarial training (E033)
 
@@ -86,12 +86,12 @@ Augmentation is what made the image system competitive, and it runs in two passe
 
 **Pass 1.** Each training image is added in four versions: original, horizontal flip, brightness-scaled by U[0.7, 1.3], and Gaussian pixel noise at $\sigma$ = 15. A fresh PCA + LogReg is fit on the combined set. Brightness jitter is the key contributor: session 03 (held out in fold 2) has systematically different lighting and brightness scaling is the only standard augmentation that crosses the gap.
 
-**Pass 2.** For each training image I query the Pass-1 model at five angles in [\(-\)10°, +10°] and pick the rotation that lands closest to the decision boundary. A rotated copy at that angle is added and PCA + LogReg is refit. Random rotation (E015) samples uniformly, so PCA fits easy angles and ignores hard ones. Adversarial selection inverts this. Principal components are reallocated towards the directions of model uncertainty. It is hard-negative mining for PCA. Robustness numbers are summarised in Figure \ref{fig:image-stress}.
+**Pass 2.** For each training image I query the Pass-1 model at five angles in [−10°, +10°] and pick the rotation that lands closest to the decision boundary. A rotated copy at that angle is added and PCA + LogReg is refit. Random rotation (E015) samples uniformly, so PCA fits easy angles and ignores hard ones. Adversarial selection inverts this. Principal components are reallocated towards the directions of model uncertainty. It is hard-negative mining for PCA. Robustness numbers are summarised in Figure \ref{fig:image-stress}.
 
 \begin{figure}[ht]
 \centering
 \includegraphics[width=0.90\linewidth]{figures/alt_a_image_robustness.pdf}
-\caption{Image stress test (E051). AdvRot is photometrically bulletproof (JPEG, blur, downsample stay at clean 0.51 \%) and halves the geometric weaknesses. JPEG, blur, contrast, HE/CLAHE and Cutout 20\(\times\)20 (E052) all regressed when added on top.}
+\caption{Image stress test (E051). AdvRot is photometrically bulletproof (JPEG, blur, downsample stay at clean 0.51 \%) and halves the geometric weaknesses. JPEG, blur, contrast, HE/CLAHE and Cutout 20×20 (E052) all regressed when added on top.}
 \label{fig:image-stress}
 \end{figure}
 
@@ -101,7 +101,7 @@ The final image system reaches **0.51 ± 0.36 % EER** at **min-DCF 0.0102**.
 
 ## 5. Fusion
 
-Each modality produces a raw LLR (audio) or logit (image) on its own scale. I fit a Platt calibration per modality on its OOF scores (one-feature logreg, C = 1e6, balanced weights), then form a weighted sum on the 2-simplex (`w_mfcc + w_lpcc + w_image = 1`, non-negative) with weights chosen on a 51\(\times\)51 grid that directly minimises OOF EER. Logistic-regression fusion was also tried. It is MLE-optimal but not EER-optimal, and the near-rank-2 design matrix (`r(MFCC, LPCC)` = 0.843) limits it.
+Each modality produces a raw LLR (audio) or logit (image) on its own scale. I fit a Platt calibration per modality on its OOF scores (one-feature logreg, C = 1e6, balanced weights), then form a weighted sum on the 2-simplex (`w_mfcc + w_lpcc + w_image = 1`, non-negative) with weights chosen on a 51×51 grid that directly minimises OOF EER. Logistic-regression fusion was also tried. It is MLE-optimal but not EER-optimal, and the near-rank-2 design matrix (`r(MFCC, LPCC)` = 0.843) limits it.
 
 \begin{table}[h]
 \centering
@@ -151,7 +151,7 @@ I organise the safeguards into five risks, each paired with its defence.
 
 **Risk 4: post-hoc rationalisation across multi-axis changes.** Defence: one knob per experiment, hypothesis written before the run, failed runs kept in the log. Negative results (LBP, FBank, CMVN, HE/CLAHE, product-rule fusion) form part of the rationale.
 
-**Risk 5: distribution shift at eval time.** Defence: stress testing (E028, E051, E052). The image flagship is photometrically bulletproof. JPEG q = 15, blur $\sigma$ = 3, and downsample 40\(\to\)80 all stay at clean 0.51 %. Remaining weaknesses are geometric (rot $>$ 15°: 7.6 %) and occlusion (11 %). Audio absorbs speed via TTA. Codec stress (13.33 % $\to$ 3.33 %) is what motivated E052. Moderate noise ($\le$ 10 dB SNR) is manageable.
+**Risk 5: distribution shift at eval time.** Defence: stress testing (E028, E051, E052). The image flagship is photometrically bulletproof. JPEG q = 15, blur $\sigma$ = 3, and downsample 40→80 all stay at clean 0.51 %. Remaining weaknesses are geometric (rot $>$ 15°: 7.6 %) and occlusion (11 %). Audio absorbs speed via TTA. Codec stress (13.33 % $\to$ 3.33 %) is what motivated E052. Moderate noise ($\le$ 10 dB SNR) is manageable.
 
 ## 7. Results
 
