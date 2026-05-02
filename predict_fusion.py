@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """E039 trimodal fusion: MFCC + LPCC (E052) + Image (E033).
 
-Per-stream Platt calibration, then a 51×51 simplex grid search over weights
+Per-stream Platt calibration, then a 51x51 simplex grid search over weights
 that directly minimises OOF EER. Flagship: 0.26 % OOF EER (0/222 errors).
 
 Usage:
@@ -37,7 +37,7 @@ def collect_oof_streams(manifest, data_dir: Path):
         seed_f = SEED + fold_id
         train_df = manifest.loc[train_idx]
         val_df = manifest.loc[val_idx]
-        print(f"  fold {fold_id}…")
+        print(f"  fold {fold_id}...")
 
         ubm_m, ad_m = train_mfcc_pipeline(train_df, data_dir, augment=True, seed=seed_f)
         ubm_l, ad_l = train_lpcc_pipeline(train_df, data_dir, augment=True, seed=seed_f)
@@ -65,10 +65,10 @@ def main():
     manifest = load_manifest(data_dir)
     y_all = manifest["label"].to_numpy()
 
-    print("Collecting OOF scores (3 streams × 3 folds)…")
+    print("Collecting OOF scores (3 streams x 3 folds)...")
     oof_mfcc, oof_lpcc, oof_image = collect_oof_streams(manifest, data_dir)
 
-    print("Fitting per-stream Platt calibrators…")
+    print("Fitting per-stream Platt calibrators...")
     cal_m = fit_platt(oof_mfcc, y_all)
     cal_l = fit_platt(oof_lpcc, y_all)
     cal_i = fit_platt(oof_image, y_all)
@@ -76,19 +76,19 @@ def main():
     cal_lo = apply_platt(cal_l, oof_lpcc)
     cal_io = apply_platt(cal_i, oof_image)
 
-    print("Grid search on the 2-simplex (51 steps)…")
+    print("Grid search on the 2-simplex (51 steps)...")
     eer_best, (W_M, W_L, W_I) = grid_search_simplex([cal_mo, cal_lo, cal_io], y_all)
     fused_oof = W_M * cal_mo + W_L * cal_lo + W_I * cal_io
     _, threshold = compute_min_dcf(fused_oof[y_all == 1], fused_oof[y_all == 0])
     print(f"  weights: mfcc={W_M:.2f}  lpcc={W_L:.2f}  image={W_I:.2f}")
     print(f"  OOF EER={eer_best * 100:.2f}%  threshold={threshold:.4f}")
 
-    print("Retraining all 3 models on full data…")
+    print("Retraining all 3 models on full data...")
     ubm_m, ad_m = train_mfcc_pipeline(manifest, data_dir, augment=True, seed=SEED)
     ubm_l, ad_l = train_lpcc_pipeline(manifest, data_dir, augment=True, seed=SEED)
     scaler, pca, clf = train_image_pipeline(manifest, data_dir, augment=True, seed=SEED)
 
-    print(f"Scoring eval dir {eval_dir}…")
+    print(f"Scoring eval dir {eval_dir}...")
     wavs = sorted(eval_dir.glob("*.wav"))
     if not wavs:
         raise RuntimeError(f"No .wav files in {eval_dir}")
@@ -115,7 +115,7 @@ def main():
             hard = 1 if score >= threshold else 0
             f.write(f"{stem} {score:.6f} {hard}\n")
 
-    print(f"Written {len(wavs)} lines → {args.output}")
+    print(f"Written {len(wavs)} lines -> {args.output}")
 
 
 if __name__ == "__main__":

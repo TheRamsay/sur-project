@@ -26,7 +26,6 @@ def train_ubm(X: np.ndarray, covariance_type: str = "diag", seed: int = MODEL_SE
 
 
 def map_adapt(ubm: GaussianMixture, X_target: np.ndarray, r: float = MAP_R) -> GaussianMixture:
-    """Means-only MAP adaptation (Reynolds 2000). Adapts only μ_k, keeps Σ_k and π_k."""
     log_resp = ubm._estimate_log_prob(X_target) + np.log(ubm.weights_)
     log_resp -= logsumexp(log_resp, axis=1, keepdims=True)
     resp = np.exp(log_resp)
@@ -89,7 +88,7 @@ def score_mfcc(wav_path: Path, adapted: GaussianMixture, ubm: GaussianMixture) -
 
 
 def score_lpcc_speed_tta(wav_path: Path, adapted: GaussianMixture, ubm: GaussianMixture) -> float:
-    """E031: average LLR over original + 0.9× + 1.1× speed (3 views).
+    """E031: average LLR over original + 0.9x + 1.1x speed (3 views).
 
     Speed perturbation preserves the spectral envelope, so LPCC is invariant.
     Pitch TTA was tested and rejected (it corrupts formant coefficients).

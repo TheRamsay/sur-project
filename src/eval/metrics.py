@@ -6,7 +6,7 @@ def compute_eer(
     scores_target: np.ndarray,
     scores_nontarget: np.ndarray,
 ) -> tuple[float, float]:
-    """Return (eer, threshold) where eer ∈ [0, 1]."""
+    """Return (eer, threshold) where eer in [0, 1]."""
     y_true = np.array([1] * len(scores_target) + [0] * len(scores_nontarget))
     y_score = np.concatenate([scores_target, scores_nontarget])
     fpr, tpr, thresholds = roc_curve(y_true, y_score)

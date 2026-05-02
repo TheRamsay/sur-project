@@ -107,7 +107,7 @@ def check_results(
         if max_zero >= min_one:
             problems.append(
                 f"Score/decision inconsistency: "
-                f"non-target score {max_zero:.4f} ≥ target decision boundary {min_one:.4f}"
+                f"non-target score {max_zero:.4f} >= target decision boundary {min_one:.4f}"
             )
 
     # 6. Target samples score higher than non-target (sanity)
@@ -119,7 +119,7 @@ def check_results(
         if mean_t <= mean_nt:
             problems.append(
                 f"Score ordering WRONG: mean target score ({mean_t:.3f}) "
-                f"≤ mean non-target score ({mean_nt:.3f})"
+                f"<= mean non-target score ({mean_nt:.3f})"
             )
 
     return problems
@@ -136,7 +136,7 @@ def main():
 
     # Build temporary eval directory
     eval_dir = Path(tempfile.mkdtemp(prefix="sur_selftest_"))
-    print(f"\nBuilding mini eval directory ({len(all_stems)} samples)…")
+    print(f"\nBuilding mini eval directory ({len(all_stems)} samples)...")
     try:
         for stem in all_stems:
             for ext in (".wav", ".png"):
@@ -151,8 +151,8 @@ def main():
         overall_ok = True
 
         for modality, (script, out_name, _) in SCRIPTS.items():
-            print(f"\n{'─'*60}")
-            print(f"Running {script} …")
+            print(f"\n{'-'*60}")
+            print(f"Running {script} ...")
             out_file = eval_dir / out_name
 
             result = subprocess.run(
@@ -163,7 +163,7 @@ def main():
             )
 
             if result.returncode != 0:
-                print(f"  ✗ SCRIPT FAILED (exit {result.returncode})")
+                print(f"  FAIL SCRIPT FAILED (exit {result.returncode})")
                 print(result.stderr[-1000:])
                 overall_ok = False
                 continue
@@ -172,7 +172,7 @@ def main():
             try:
                 rows = parse_results(out_file)
             except ValueError as e:
-                print(f"  ✗ PARSE ERROR: {e}")
+                print(f"  FAIL PARSE ERROR: {e}")
                 overall_ok = False
                 continue
 
@@ -182,7 +182,7 @@ def main():
 
             if problems:
                 overall_ok = False
-                print(f"  ✗ FAIL:")
+                print(f"  FAIL FAIL:")
                 for p in problems:
                     print(f"      - {p}")
             else:
@@ -193,7 +193,7 @@ def main():
                 decisions_correct = sum(
                     1 for r in rows if r[2] == gt.get(r[0], -1)
                 )
-                print(f"  ✓ OK")
+                print(f"  OK OK")
                 print(f"      Scores: target mean: {mean_t:+.3f},  non-target mean: {mean_nt:+.3f}")
                 print(f"      Decisions correct: {decisions_correct}/{len(rows)}")
                 print(f"      Sample lines:")
@@ -203,9 +203,9 @@ def main():
 
         print(f"\n{'=' * 60}")
         if overall_ok:
-            print("✓ ALL CHECKS PASSED, safe to submit")
+            print("OK ALL CHECKS PASSED, safe to submit")
         else:
-            print("✗ SOME CHECKS FAILED, fix before submission")
+            print("FAIL SOME CHECKS FAILED, fix before submission")
             sys.exit(1)
 
     finally:

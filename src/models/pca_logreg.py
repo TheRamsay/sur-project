@@ -1,4 +1,4 @@
-"""Image classifier: 80×80 grayscale, PCA-50, logistic regression, two-pass adversarial-rotation training (E033)."""
+"""Image classifier: 80x80 grayscale, PCA-50, logistic regression, two-pass adversarial-rotation training (E033)."""
 from pathlib import Path
 
 import numpy as np
@@ -34,7 +34,7 @@ def train_image_pipeline(df, data_dir: Path, augment: bool, seed: int):
     """E033 two-pass training.
 
     Pass 1: original + flip + brightness + noise. Fit PCA + LogReg.
-    Pass 2: per sample, find the rotation in [-10°, +10°] where Pass-1 is most uncertain
+    Pass 2: per sample, find the rotation in [-10deg, +10deg] where Pass-1 is most uncertain
             (smallest |logit|), add a rotated copy at that angle, refit PCA + LogReg.
     """
     rng = np.random.default_rng(seed)

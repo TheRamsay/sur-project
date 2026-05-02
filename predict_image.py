@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """E033 image system: PCA-50 + LogReg + flip/brightness/noise/adv-rot aug + flip TTA.
 
-Flagship CV EER: 0.51 ± 0.36 %.
+Flagship CV EER: 0.51 +/- 0.36 %.
 
 Usage:
     uv run predict_image.py --eval-dir /path/to/eval --output results/image_pca_adv_rot.txt
@@ -49,19 +49,19 @@ def main():
     manifest = load_manifest(data_dir)
     y_all = manifest["label"].to_numpy()
 
-    print("Collecting OOF scores for calibration…")
+    print("Collecting OOF scores for calibration...")
     oof_raw = collect_oof(manifest, data_dir)
 
-    print("Fitting Platt calibrator…")
+    print("Fitting Platt calibrator...")
     cal = fit_platt(oof_raw, y_all)
     oof_cal = apply_platt(cal, oof_raw)
     _, threshold = compute_min_dcf(oof_cal[y_all == 1], oof_cal[y_all == 0])
     print(f"  Threshold (min-DCF on OOF): {threshold:.4f}")
 
-    print("Retraining on all data…")
+    print("Retraining on all data...")
     scaler, pca, clf = train_image_pipeline(manifest, data_dir, augment=True, seed=SEED)
 
-    print(f"Scoring eval data in {eval_dir} …")
+    print(f"Scoring eval data in {eval_dir} ...")
     pngs = sorted(eval_dir.glob("*.png"))
     if not pngs:
         raise RuntimeError(f"No .png files found in {eval_dir}")
@@ -73,7 +73,7 @@ def main():
             hard = 1 if score >= threshold else 0
             f.write(f"{png.stem} {score:.6f} {hard}\n")
 
-    print(f"Written {len(pngs)} lines → {args.output}")
+    print(f"Written {len(pngs)} lines -> {args.output}")
 
 
 if __name__ == "__main__":

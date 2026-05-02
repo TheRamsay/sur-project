@@ -3,7 +3,7 @@ import numpy as np
 
 
 def extract_mfcc(y: np.ndarray, sr: int) -> np.ndarray:
-    """MFCC 13 + Δ + ΔΔ with per-utterance CMN. Frame-level features (T, 39)."""
+    """MFCC 13 + delta + delta-delta with per-utterance CMN. Frame-level features (T, 39)."""
     mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
     delta = librosa.feature.delta(mfcc)
     delta2 = librosa.feature.delta(mfcc, order=2)
@@ -20,10 +20,7 @@ def extract_lpcc(
     hop_length: int = 160,
     win_length: int = 400,
 ) -> np.ndarray:
-    """LPCC 13 + Δ + ΔΔ with per-utterance CMN. Frame-level features (T, 39).
-
-    Cepstrum is obtained by taking the FFT of the LPC polynomial and inverse-FFT
-    of the negative log-magnitude (E020).
+    """LPCC 13 + delta + delta-delta with per-utterance CMN. Frame-level features (T, 39).
     """
     frames = librosa.util.frame(y, frame_length=win_length, hop_length=hop_length)
     cep_frames = []

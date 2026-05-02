@@ -14,7 +14,7 @@ def aug_speed(y: np.ndarray, rng: np.random.Generator) -> np.ndarray:
 
 
 def aug_pitch(y: np.ndarray, sr: int, rng: np.random.Generator) -> np.ndarray:
-    """Pitch shift by ±1 or ±2 semitones (E025, LPCC-specific)."""
+    """Pitch shift by +/-1 or +/-2 semitones (E025, LPCC-specific)."""
     n_steps = float(rng.choice([-2, -1, 1, 2]))
     return librosa.effects.pitch_shift(y, sr=sr, n_steps=n_steps)
 

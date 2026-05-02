@@ -3,7 +3,7 @@ from scipy.ndimage import rotate as nd_rotate
 
 
 def aug_flip(x: np.ndarray) -> np.ndarray:
-    """Horizontal flip of a flattened 80×80 image."""
+    """Horizontal flip of a flattened 80x80 image."""
     return x.reshape(80, 80)[:, ::-1].flatten()
 
 
@@ -18,7 +18,7 @@ def aug_noise(x: np.ndarray, rng: np.random.Generator, sigma: float = 15.0) -> n
 
 
 def aug_rotate(x: np.ndarray, angle: float) -> np.ndarray:
-    """Rotate the flattened 80×80 image by angle degrees, zero padding."""
+    """Rotate the flattened 80x80 image by angle degrees, zero padding."""
     return nd_rotate(
         x.reshape(80, 80), angle, reshape=False, order=1, mode="constant", cval=0
     ).flatten()
