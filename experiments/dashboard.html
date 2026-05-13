@@ -1,0 +1,1575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SUR 2025/2026 — Experiment Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0a0a0b;
+    --bg2: #08080a;
+    --panel: #111113;
+    --panel2: #17171a;
+    --hover: rgba(255,255,255,0.035);
+    --bd: rgba(255,255,255,0.06);
+    --bd2: rgba(255,255,255,0.1);
+    --text: #ededef;
+    --t2: #9a9aa6;
+    --t3: #5a5a66;
+    --t4: #3a3a42;
+    --audio: #7aa7ff;
+    --image: #4ade80;
+    --fusion: #c4a7ff;
+    --fusion2: #e0c7ff;
+    --fail: #fb7185;
+    --warn: #fbbf24;
+    --ok: #4ade80;
+    --fs: #fbbf24;
+    --ease: cubic-bezier(.32,.72,.16,1);
+    --ease-out: cubic-bezier(.16,.84,.32,1);
+    --shadow-1: 0 1px 2px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.04);
+    --shadow-2: 0 4px 12px rgba(0,0,0,0.4), 0 1px 3px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.06);
+    --shadow-glow-fusion: 0 0 40px rgba(196,167,255,0.18), 0 0 80px rgba(196,167,255,0.08);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  ::selection { background: rgba(122,167,255,0.25); }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.12); background-clip: padding-box; border: 2px solid transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-size: 13px; line-height: 1.5;
+    height: 100vh; overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: 'cv11', 'ss01', 'ss03';
+    position: relative;
+  }
+  /* ambient aurora behind everything */
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background:
+      radial-gradient(1200px 600px at 78% -10%, rgba(196,167,255,0.08), transparent 60%),
+      radial-gradient(900px 500px at 10% 110%, rgba(122,167,255,0.05), transparent 60%);
+  }
+  header, .stats, .main { position: relative; z-index: 1; }
+
+  /* entrance animations */
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes shimmer {
+    0%   { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  @keyframes pulseDot {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(74,222,128,0.5); }
+    50%      { box-shadow: 0 0 0 4px rgba(74,222,128,0); }
+  }
+
+  /* ── HEADER ── */
+  header {
+    height: 56px; padding: 0 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--bd);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    background: rgba(10,10,11,0.7);
+    animation: rise 320ms var(--ease-out) both;
+  }
+  .h-left { display: flex; align-items: center; gap: 14px; }
+  .h-logo {
+    width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+    background:
+      linear-gradient(135deg, #7aa7ff 0%, #a991ff 50%, #c4a7ff 100%);
+    display: flex; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.25),
+      0 4px 12px rgba(122,167,255,0.25),
+      0 0 0 1px rgba(255,255,255,0.06);
+  }
+  .h-logo::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.18) 50%, transparent 60%);
+  }
+  .h-logo svg { position: relative; z-index: 1; }
+  .h-title { font-size: 13.5px; font-weight: 600; letter-spacing: -0.2px; color: var(--text); }
+  .h-sub   { font-size: 11.5px; color: var(--t2); margin-top: 2px; font-weight: 400; }
+  .h-right { display: flex; align-items: center; gap: 12px; }
+  .h-status {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-size: 11.5px; color: var(--t2); font-weight: 500;
+    padding: 5px 11px;
+    border: 1px solid var(--bd);
+    border-radius: 999px;
+    background: rgba(255,255,255,0.02);
+  }
+  .h-dot {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--ok);
+    box-shadow: 0 0 6px rgba(74,222,128,0.5);
+    animation: pulseDot 2.4s ease-in-out infinite;
+  }
+
+  /* ── STATS ── */
+  .stats {
+    display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr;
+    border-bottom: 1px solid var(--bd);
+  }
+  .sc {
+    padding: 20px 22px 22px;
+    border-right: 1px solid var(--bd);
+    position: relative;
+    overflow: hidden;
+    transition: background 0.22s var(--ease), transform 0.22s var(--ease-out);
+    animation: rise 380ms var(--ease-out) both;
+  }
+  .sc:nth-child(1) { animation-delay: 30ms; }
+  .sc:nth-child(2) { animation-delay: 70ms; }
+  .sc:nth-child(3) { animation-delay: 110ms; }
+  .sc:nth-child(4) { animation-delay: 150ms; }
+  .sc:nth-child(5) { animation-delay: 190ms; }
+  .sc:last-child { border-right: none; }
+  /* tinted gradient overlay per modality */
+  .sc::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(180deg, var(--tint, transparent) 0%, transparent 70%);
+    opacity: 0.5;
+    transition: opacity 0.3s var(--ease);
+  }
+  /* animated top accent line */
+  .sc::after {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent, transparent), transparent);
+    opacity: 0;
+    transition: opacity 0.3s var(--ease);
+  }
+  .sc:hover { background: var(--hover); }
+  .sc:hover::before { opacity: 1; }
+  .sc:hover::after  { opacity: 1; }
+
+  .sf { --tint: rgba(196,167,255,0.07); --accent: var(--fusion); }
+  .si { --tint: rgba(74,222,128,0.05);  --accent: var(--image); }
+  .sa { --tint: rgba(122,167,255,0.05); --accent: var(--audio); }
+  .sn { --tint: rgba(251,191,36,0.04);  --accent: var(--warn); }
+  .sd { --tint: rgba(251,191,36,0.03);  --accent: var(--warn); }
+
+  .sc-label {
+    font-size: 10.5px; color: var(--t2); margin-bottom: 12px;
+    font-weight: 500; display: flex; align-items: center; gap: 7px;
+    text-transform: uppercase; letter-spacing: 0.6px;
+    position: relative;
+  }
+  .sc-dot {
+    width: 6px; height: 6px; border-radius: 50%; display: inline-block;
+    box-shadow: 0 0 8px currentColor;
+  }
+  .sf .sc-dot { background: var(--fusion); color: var(--fusion); }
+  .sa .sc-dot { background: var(--audio);  color: var(--audio); }
+  .si .sc-dot { background: var(--image);  color: var(--image); }
+  .sn .sc-dot { background: var(--fs);     color: var(--fs); }
+  .sd .sc-dot { background: var(--warn);   color: var(--warn); }
+  .sc-val {
+    font-family: 'Inter', sans-serif;
+    font-size: 28px; font-weight: 600; line-height: 1; letter-spacing: -1px;
+    color: var(--text); position: relative;
+  }
+  .sc-val .unit { font-size: 16px; font-weight: 500; color: var(--t2); margin-left: 2px; }
+  .sc-val.sm { font-size: 18px; letter-spacing: -0.3px; padding-top: 5px; }
+  .sc-sub { font-size: 11px; color: var(--t3); margin-top: 10px; font-weight: 400; position: relative; }
+
+  /* ── HERO STAT (Fusion EER) ── */
+  .sc.sf {
+    background:
+      radial-gradient(circle at 0% 0%, rgba(196,167,255,0.10), transparent 55%),
+      radial-gradient(circle at 100% 100%, rgba(122,167,255,0.06), transparent 55%);
+  }
+  .sc.sf .sc-label { color: var(--fusion); opacity: 0.85; }
+  .sc.sf .sc-val.hero {
+    font-size: 52px;
+    font-weight: 700;
+    letter-spacing: -2.4px;
+    line-height: 0.95;
+    background: linear-gradient(135deg, #ffffff 0%, var(--fusion2) 45%, var(--fusion) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    display: inline-block;
+    position: relative;
+  }
+  .sc.sf .sc-val.hero .unit {
+    -webkit-text-fill-color: var(--fusion);
+    color: var(--fusion);
+    font-size: 24px; font-weight: 500;
+    margin-left: 4px; opacity: 0.7;
+    background: none;
+  }
+  .sc.sf .sc-sub { color: var(--t2); }
+  .sc.sf .sc-sub strong { color: var(--text); font-weight: 500; }
+  /* subtle animated underline beneath hero number */
+  .hero-underline {
+    display: block;
+    height: 2px; width: 110px; margin-top: 14px;
+    border-radius: 2px;
+    background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(196,167,255,0.6) 20%,
+      rgba(196,167,255,1) 50%,
+      rgba(196,167,255,0.6) 80%,
+      transparent 100%);
+    background-size: 200% 100%;
+    animation: shimmer 4s ease-in-out infinite;
+    box-shadow: 0 0 12px rgba(196,167,255,0.4);
+  }
+
+  /* ── LAYOUT ── */
+  .main {
+    display: grid; grid-template-columns: 1fr 380px;
+    height: calc(100vh - 56px - 156px);
+    overflow: hidden;
+    animation: rise 460ms var(--ease-out) both;
+    animation-delay: 220ms;
+  }
+  .col { display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+  .col.left  { border-right: 1px solid var(--bd); }
+
+  .panel { display: flex; flex-direction: column; min-height: 0; }
+  .panel + .panel { border-top: 1px solid var(--bd); }
+  .panel-head {
+    padding: 14px 22px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .panel-title {
+    font-size: 11px; font-weight: 600; color: var(--text);
+    text-transform: uppercase; letter-spacing: 0.7px;
+  }
+  .panel-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px; color: var(--t2); font-weight: 500;
+  }
+
+  /* ── CHART ── */
+  .chart-panel { flex-shrink: 0; }
+  .chart-wrap { height: 210px; padding: 0 22px 18px; position: relative; }
+
+  /* ── LIST ── */
+  .list-panel { flex: 1; min-height: 0; }
+  .list-head { padding: 14px 22px 10px; flex-shrink: 0; border-top: 1px solid var(--bd); }
+
+  .filters { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 12px; }
+  .fb {
+    padding: 5px 11px; border-radius: 999px; border: 1px solid transparent;
+    background: transparent; color: var(--t2); cursor: pointer;
+    font-family: 'Inter', sans-serif; font-size: 11.5px; font-weight: 500;
+    transition: all 0.16s var(--ease); outline: none; white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .fb:hover { background: var(--hover); color: var(--text); border-color: var(--bd); }
+  .fb.on { background: rgba(255,255,255,0.06); color: var(--text); border-color: var(--bd2); }
+  .fb[data-f="audio"].on    { color: var(--audio); border-color: rgba(122,167,255,0.3); background: rgba(122,167,255,0.08); }
+  .fb[data-f="image"].on    { color: var(--image); border-color: rgba(74,222,128,0.3);  background: rgba(74,222,128,0.08); }
+  .fb[data-f="fusion"].on   { color: var(--fusion);border-color: rgba(196,167,255,0.3); background: rgba(196,167,255,0.08); }
+  .fb[data-f="flagship"].on { color: var(--fs);    border-color: rgba(251,191,36,0.3);  background: rgba(251,191,36,0.08); }
+  .fb[data-f="fail"].on     { color: var(--fail);  border-color: rgba(251,113,133,0.3); background: rgba(251,113,133,0.08); }
+  .fb .n {
+    color: var(--t3); font-weight: 400;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    padding: 0 5px; border-radius: 6px;
+    background: rgba(255,255,255,0.04);
+  }
+  .fb.on .n { color: currentColor; opacity: 0.7; background: rgba(255,255,255,0.08); }
+
+  .exp-scroll { flex: 1; overflow-y: auto; padding: 2px 14px 14px; min-height: 0; }
+  .exp-row {
+    display: grid; grid-template-columns: 3px 42px 12px 1fr auto 18px;
+    align-items: center; gap: 10px;
+    padding: 9px 10px 9px 7px; border-radius: 7px; cursor: pointer;
+    transition: background 0.16s var(--ease), transform 0.16s var(--ease-out), box-shadow 0.16s var(--ease);
+    position: relative;
+  }
+  .row-bar {
+    width: 3px; height: 22px; border-radius: 2px; justify-self: start;
+    background: var(--bar, transparent);
+    opacity: 0.55;
+    transition: opacity 0.16s var(--ease), height 0.16s var(--ease);
+  }
+  .exp-row[data-m="audio"]  .row-bar { --bar: var(--audio); }
+  .exp-row[data-m="image"]  .row-bar { --bar: var(--image); }
+  .exp-row[data-m="fusion"] .row-bar { --bar: var(--fusion); }
+  .exp-row:hover {
+    background: var(--hover);
+    transform: translateY(-1px);
+  }
+  .exp-row:hover .row-bar { opacity: 1; height: 26px; }
+  .exp-row.sel {
+    background: rgba(122,167,255,0.08);
+    box-shadow: inset 0 0 0 1px rgba(122,167,255,0.18);
+  }
+  .exp-row[data-m="image"].sel  { background: rgba(74,222,128,0.08);  box-shadow: inset 0 0 0 1px rgba(74,222,128,0.18); }
+  .exp-row[data-m="fusion"].sel { background: rgba(196,167,255,0.08); box-shadow: inset 0 0 0 1px rgba(196,167,255,0.22); }
+  .exp-row[data-fs="1"].sel     { background: rgba(251,191,36,0.08);  box-shadow: inset 0 0 0 1px rgba(251,191,36,0.22); }
+  .exp-row.sel .row-bar { opacity: 1; height: 26px; }
+  .exp-row.hidden { display: none; }
+
+  .row-id    { font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 500; color: var(--t3); }
+  .exp-row.sel .row-id { color: var(--t2); }
+  .row-dot   {
+    width: 6px; height: 6px; border-radius: 50%; justify-self: center;
+  }
+  .row-dot.audio  { background: var(--audio); box-shadow: 0 0 6px rgba(122,167,255,0.4); }
+  .row-dot.image  { background: var(--image); box-shadow: 0 0 6px rgba(74,222,128,0.4); }
+  .row-dot.fusion { background: var(--fusion);box-shadow: 0 0 6px rgba(196,167,255,0.4); }
+  .row-title { font-size: 12.5px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 450; }
+  .exp-row[data-fs="1"] .row-title { color: var(--fs); font-weight: 500; }
+  .row-eer   { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; font-weight: 500; text-align: right; white-space: nowrap; color: var(--t2); }
+  .row-v     {
+    font-size: 9.5px; text-align: center; line-height: 1; color: var(--t3);
+    width: 18px; height: 18px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 999px;
+    font-weight: 600;
+  }
+  .vfs       { color: var(--fs);   background: rgba(251,191,36,0.12); }
+  .vok       { color: var(--ok);   background: rgba(74,222,128,0.10); }
+  .vno       { color: var(--fail); background: rgba(251,113,133,0.10); }
+
+  /* ── LEADERBOARD ── */
+  .lb-panel { flex-shrink: 0; }
+  .lb-rows { padding: 2px 14px 14px; }
+  .lb-row {
+    display: grid; grid-template-columns: 18px 8px 1fr auto;
+    align-items: center; gap: 10px;
+    padding: 8px 10px; border-radius: 7px;
+    transition: background 0.16s var(--ease), transform 0.16s var(--ease-out);
+    position: relative;
+  }
+  .lb-row:hover { background: var(--hover); transform: translateX(2px); }
+  .lb-n  {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--t3); text-align: center; font-weight: 500;
+  }
+  .lb-n.tp {
+    color: var(--fs); font-weight: 700;
+    text-shadow: 0 0 8px rgba(251,191,36,0.4);
+  }
+  .lb-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .lb-dot.audio  { background: var(--audio); box-shadow: 0 0 6px rgba(122,167,255,0.45); }
+  .lb-dot.image  { background: var(--image); box-shadow: 0 0 6px rgba(74,222,128,0.45); }
+  .lb-dot.fusion { background: var(--fusion);box-shadow: 0 0 8px rgba(196,167,255,0.55); }
+  .lb-nm { font-size: 12px; font-weight: 450; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lb-m  { text-align: right; display: flex; align-items: baseline; gap: 8px; }
+  .lb-eer { font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; color: var(--text); }
+  .lb-dcf { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--t3); }
+
+  /* ── DETAIL ── */
+  .detail-panel { flex: 1; min-height: 0; border-top: 1px solid var(--bd); }
+  .detail-scroll { flex: 1; overflow-y: auto; min-height: 0; }
+  .detail-ph {
+    padding: 60px 24px; text-align: center;
+    color: var(--t3); font-size: 12.5px; line-height: 1.8;
+  }
+  .detail-ph svg { display: block; margin: 0 auto 12px; opacity: 0.25; }
+
+  .d-content { display: none; padding: 8px 22px 24px; }
+  .d-content.vis {
+    display: block;
+    animation: rise 280ms var(--ease-out) both;
+  }
+
+  .d-head { margin-bottom: 20px; }
+  .d-meta {
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--t2); margin-bottom: 10px;
+  }
+  .d-dot { width: 5px; height: 5px; border-radius: 50%; }
+  .d-dot.audio  { background: var(--audio); box-shadow: 0 0 5px rgba(122,167,255,0.5); }
+  .d-dot.image  { background: var(--image); box-shadow: 0 0 5px rgba(74,222,128,0.5); }
+  .d-dot.fusion { background: var(--fusion);box-shadow: 0 0 5px rgba(196,167,255,0.5); }
+  .d-mod { text-transform: uppercase; font-size: 10px; letter-spacing: 0.7px; font-weight: 600; }
+  .d-mod.audio  { color: var(--audio); }
+  .d-mod.image  { color: var(--image); }
+  .d-mod.fusion { color: var(--fusion); }
+  .d-sep { color: var(--t4); }
+  .d-title {
+    font-size: 17px; font-weight: 600; line-height: 1.35;
+    letter-spacing: -0.3px; color: var(--text);
+  }
+  .d-flag-tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 10.5px; font-weight: 600; color: var(--fs);
+    margin-top: 10px;
+    padding: 4px 10px;
+    border: 1px solid rgba(251,191,36,0.25);
+    background: rgba(251,191,36,0.08);
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+  }
+
+  .mbox-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 0; margin-bottom: 22px;
+    border: 1px solid var(--bd); border-radius: 10px;
+    overflow: hidden;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+  }
+  .mbox { padding: 14px 16px; position: relative; }
+  .mbox + .mbox { border-left: 1px solid var(--bd); }
+  .ml {
+    font-size: 10px; color: var(--t2); margin-bottom: 8px;
+    font-weight: 500; text-transform: uppercase; letter-spacing: 0.7px;
+  }
+  .mv {
+    font-family: 'Inter', sans-serif;
+    font-size: 22px; font-weight: 600; line-height: 1;
+    letter-spacing: -0.5px; color: var(--text);
+  }
+  .mv.mono { font-family: 'JetBrains Mono', monospace; font-size: 16px; letter-spacing: 0; }
+
+  .ds { margin-bottom: 16px; padding-left: 12px; border-left: 1px solid var(--bd); }
+  .ds h4 {
+    font-size: 10px; font-weight: 500; font-style: italic;
+    letter-spacing: 0.5px; color: var(--t2); margin-bottom: 6px;
+    text-transform: lowercase;
+  }
+  .ds p  { font-size: 12.5px; color: var(--text); line-height: 1.65; }
+  .ds p.mono { font-family: 'JetBrains Mono', monospace; font-size: 11.5px; color: var(--t2); }
+  .ds.ds-divider { border-left: none; padding-left: 0; padding-top: 14px; margin-top: 4px; border-top: 1px solid var(--bd); }
+
+  .ft { width: 100%; border-collapse: collapse; }
+  .ft td { padding: 7px 0; border-bottom: 1px solid var(--bd); font-size: 12px; }
+  .ft td:first-child { color: var(--t2); font-size: 11.5px; width: 90px; }
+  .ft td:nth-child(2) { font-family: 'JetBrains Mono', monospace; font-weight: 500; }
+  .ft td:nth-child(3) { text-align: right; width: 80px; }
+  .ft tr:last-child td { border-bottom: none; padding-top: 10px; font-weight: 600; color: var(--text); }
+  .fb-bar {
+    display: inline-block; height: 3px; border-radius: 2px;
+    vertical-align: middle; margin-left: 6px; opacity: 0.85;
+    box-shadow: 0 0 6px currentColor;
+  }
+
+  .rel { display: flex; flex-wrap: wrap; gap: 5px; }
+  .rel-chip {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px; padding: 3px 9px;
+    border: 1px solid var(--bd); border-radius: 999px;
+    cursor: pointer; color: var(--t2);
+    transition: all 0.16s var(--ease);
+  }
+  .rel-chip:hover {
+    border-color: rgba(122,167,255,0.4);
+    color: var(--audio);
+    background: rgba(122,167,255,0.08);
+    transform: translateY(-1px);
+  }
+
+  a { color: var(--audio); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<header id="siteHeader">
+  <div class="h-left">
+    <div class="h-logo" aria-label="SUR">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M2 11 L8 3 L14 11" />
+        <path d="M5 11 L8 7 L11 11" opacity="0.65"/>
+      </svg>
+    </div>
+    <div>
+      <div class="h-title">SUR 2025/2026 — Experiment Dashboard</div>
+      <div class="h-sub">Target m431 · FIT VUT · trimodal detection</div>
+    </div>
+  </div>
+  <div class="h-right">
+    <div class="h-status"><span class="h-dot"></span>All systems locked</div>
+  </div>
+</header>
+
+<div class="stats">
+  <div class="sc sf">
+    <div class="sc-label"><span class="sc-dot"></span>Fusion EER · flagship</div>
+    <div class="sc-val hero">0.26<span class="unit">%</span></div>
+    <span class="hero-underline"></span>
+    <div class="sc-sub"><strong>E039 trimodal</strong> · OOF · 0 errors / 222</div>
+  </div>
+  <div class="sc si">
+    <div class="sc-label"><span class="sc-dot"></span>Image EER</div>
+    <div class="sc-val">0.51<span class="unit">%</span></div>
+    <div class="sc-sub">E033 · PCA + adv-rot aug</div>
+  </div>
+  <div class="sc sa">
+    <div class="sc-label"><span class="sc-dot"></span>Audio EER</div>
+    <div class="sc-val">0.46<span class="unit">%</span></div>
+    <div class="sc-sub">E052 · LPCC + tied cov + codec</div>
+  </div>
+  <div class="sc sn">
+    <div class="sc-label"><span class="sc-dot"></span>Experiments</div>
+    <div class="sc-val">52</div>
+    <div class="sc-sub">8 flagships · 24 negative</div>
+  </div>
+  <div class="sc sd">
+    <div class="sc-label"><span class="sc-dot"></span>Deadline</div>
+    <div class="sc-val sm">May 04, 2026</div>
+    <div class="sc-sub">IS upload · 6 result files</div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="col left">
+    <div class="panel chart-panel">
+      <div class="panel-head">
+        <div class="panel-title">EER Progression</div>
+        <div class="panel-meta">lower is better</div>
+      </div>
+      <div class="chart-wrap"><canvas id="eerChart"></canvas></div>
+    </div>
+
+    <div class="panel list-panel">
+      <div class="list-head">
+        <div class="panel-head" style="padding:0">
+          <div class="panel-title">All Experiments</div>
+          <div class="panel-meta" id="expCount">52 shown</div>
+        </div>
+        <div class="filters">
+          <button class="fb on" data-f="all">All<span class="n">52</span></button>
+          <button class="fb" data-f="audio">Audio<span class="n">27</span></button>
+          <button class="fb" data-f="image">Image<span class="n">16</span></button>
+          <button class="fb" data-f="fusion">Fusion<span class="n">9</span></button>
+          <button class="fb" data-f="flagship">Flagship<span class="n">8</span></button>
+          <button class="fb" data-f="fail">Negative<span class="n">24</span></button>
+        </div>
+      </div>
+      <div class="exp-scroll" id="expGrid"></div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="panel lb-panel">
+      <div class="panel-head">
+        <div class="panel-title">Best Systems</div>
+        <div class="panel-meta">by EER</div>
+      </div>
+      <div class="lb-rows" id="leaderboard"></div>
+    </div>
+
+    <div class="panel detail-panel">
+      <div class="panel-head">
+        <div class="panel-title">Experiment Detail</div>
+        <div class="panel-meta" id="detailMeta"></div>
+      </div>
+      <div class="detail-scroll">
+        <div class="detail-ph" id="detailPlaceholder">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+          Select an experiment<br>to inspect details
+        </div>
+        <div class="d-content" id="detailContent"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const EXPS = [
+  {
+    id:"E001", slug:"audio-mfcc-gmm-baseline", modality:"audio",
+    title:"MFCC 13 + GMM baseline",
+    eer_mean:17.92, eer_std:7.81, min_dcf:0.2250,
+    folds:[null,null,null], eer_display:"17.92 ± 7.81%",
+    verdict:"neutral", flagship:false,
+    date:"2026-04-17", related:["E002"],
+    model:"GMM 8/32, MFCC 13, CMN",
+    hypothesis:"Establish the lecture baseline before any improvements.",
+    result:"17.92 ± 7.81% EER. High variance across folds.",
+    interpretation:"Anchor. Threshold uncalibrated. Deltas not yet added.",
+    next:"Add Δ+ΔΔ features → E002"
+  },
+  {
+    id:"E002", slug:"audio-mfcc-deltas", modality:"audio",
+    title:"MFCC 13 + Δ + ΔΔ",
+    eer_mean:10.09, eer_std:1.81, min_dcf:0.1796,
+    folds:[null,null,null], eer_display:"10.09 ± 1.81%",
+    verdict:"ok", flagship:false,
+    date:"2026-04-17", related:["E001","E003"],
+    model:"GMM 8/32, MFCC 13+Δ+ΔΔ, CMN",
+    hypothesis:"Adding temporal deltas should capture dynamics, improving EER.",
+    result:"10.09 ± 1.81% EER. −7.83pp vs E001. Std collapses.",
+    interpretation:"Deltas are essential. Variance collapse confirms the gain is structural.",
+    next:"UBM+MAP adaptation → E003"
+  },
+  {
+    id:"E003", slug:"audio-gmm-ubm-map", modality:"audio",
+    title:"UBM 32 + MAP adapt r=16",
+    eer_mean:7.45, eer_std:5.04, min_dcf:0.1019,
+    folds:[null,null,null], eer_display:"7.45 ± 5.04%",
+    verdict:"ok", flagship:false,
+    date:"2026-04-17", related:["E002","E008"],
+    model:"UBM 32 + MAP r=16, MFCC+Δ+ΔΔ",
+    hypothesis:"MAP adaptation transfers UBM statistics → better target model.",
+    result:"7.45 ± 5.04% EER. Threshold ≈ 0 (well calibrated).",
+    interpretation:"UBM+MAP is a clear step. High std (fold-level variance) motivates augmentation.",
+    next:"Add augmentation → E008"
+  },
+  {
+    id:"E004", slug:"image-pca-logreg-baseline", modality:"image",
+    title:"PCA 50 + LogReg baseline",
+    eer_mean:4.49, eer_std:4.26, min_dcf:0.0565,
+    folds:[3.47,0.83,9.17], eer_display:"4.49 ± 4.26%",
+    verdict:"ok", flagship:false,
+    date:"2026-04-18", related:["E007","E011"],
+    model:"PCA 50 + LogReg C=1, 80×80 grayscale",
+    hypothesis:"PCA on flattened face images should capture appearance for classification.",
+    result:"4.49 ± 4.26%. Beats audio anchor. Fold 2 (session 03) collapses to 9.17%.",
+    interpretation:"Image surprisingly strong. High std from session lighting shift.",
+    next:"Augmentation to cover session variation → E007"
+  },
+  {
+    id:"E005", slug:"image-lbp-logreg", modality:"image",
+    title:"LBP 4×4 grid + LogReg",
+    eer_mean:17.78, eer_std:23.58, min_dcf:0.2278,
+    folds:[null,null,null], eer_display:"17.78 ± 23.58%",
+    verdict:"fail", flagship:false,
+    date:"2026-04-18", related:["E004"],
+    model:"LBP 4×4 256-bin + LogReg C=1",
+    hypothesis:"Local texture features may be more discriminative than global appearance.",
+    result:"17.78 ± 23.58%. Fold 2 collapses to 45% EER.",
+    interpretation:"Session-to-session appearance shift kills LBP texture. PCA global appearance wins.",
+    next:"Return to PCA — LBP not viable"
+  },
+  {
+    id:"E006", slug:"image-fisherfaces", modality:"image",
+    title:"PCA 100 + LDA (shrinkage)",
+    eer_mean:18.24, eer_std:1.53, min_dcf:0.2657,
+    folds:[null,null,null], eer_display:"18.24 ± 1.53%",
+    verdict:"fail", flagship:false,
+    date:"2026-04-18", related:["E004"],
+    model:"PCA 100 + LDA shrinkage=auto",
+    hypothesis:"Fisherfaces (LDA) should discriminate target vs non-target better than PCA alone.",
+    result:"18.24 ± 1.53%. LDA 1D bottleneck with 20 target samples loses to LogReg in 50D.",
+    interpretation:"LDA is constrained to n_classes−1=1 dimension. Not enough capacity.",
+    next:"PCA+LogReg stays. E004 is the baseline."
+  },
+  {
+    id:"E007", slug:"image-augmentation-ablation", modality:"image",
+    title:"PCA 50 + LogReg + aug (+All)",
+    eer_mean:0.97, eer_std:0.86, min_dcf:0.0194,
+    folds:[2.08,0.83,0.00], eer_display:"0.97 ± 0.86%",
+    verdict:"flagship", flagship:true,
+    date:"2026-04-19", related:["E004","E011","E015","E028"],
+    model:"PCA 50 + LogReg + flip+brightness+noise",
+    hypothesis:"Augmentation (flip/brightness/noise/all) should reduce session-level variance.",
+    result:"0.97 ± 0.86%. Brightness jitter is the key contributor. Fold 2 → 0.00%.",
+    interpretation:"Brightness covers session lighting shift. Noise+flip secondary. Combined is super-additive.",
+    next:"Confirm n=50 optimal → E011. Image flagship locked."
+  },
+  {
+    id:"E008", slug:"audio-augmentation-ablation", modality:"audio",
+    title:"UBM+MAP + aug (+All)",
+    eer_mean:4.21, eer_std:3.11, min_dcf:0.0509,
+    folds:[3.47,8.33,0.83], eer_display:"4.21 ± 3.11%",
+    verdict:"ok", flagship:false,
+    date:"2026-04-19", related:["E003","E013","E014"],
+    model:"UBM 32 + MAP r=16, MFCC+Δ+ΔΔ, +Noise+Speed",
+    hypothesis:"Speed perturbation and noise augmentation should reduce session variance.",
+    result:"4.21 ± 3.11%. Speed is the key contributor. +All wins.",
+    interpretation:"Speaking rate varies across sessions — speed aug is exactly the right inductive bias for MFCC.",
+    next:"Explore fusion → E009. Also: explore LPCC → E020."
+  },
+  {
+    id:"E009", slug:"fusion-score-level", modality:"fusion",
+    title:"MFCC + image score fusion (w=0.28)",
+    eer_mean:3.75, eer_std:null, min_dcf:0.0750,
+    folds:[], eer_display:"3.75% OOF",
+    verdict:"ok", flagship:false,
+    date:"2026-04-19", related:["E008","E007","E023"],
+    model:"Platt calib + grid search, w_audio=0.28",
+    hypothesis:"Score-level fusion should combine complementary audio and image signals.",
+    result:"3.75% OOF EER. Image gets 72% weight. Beats both modalities alone.",
+    interpretation:"Complementary signals confirmed. Image clearly stronger. Superseded by E023.",
+    next:"Replace MFCC with LPCC → E023"
+  },
+  {
+    id:"E010", slug:"audio-ubm64", modality:"audio",
+    title:"UBM 64 + MAP (over-parameterized)",
+    eer_mean:6.39, eer_std:3.93, min_dcf:0.0611,
+    folds:[null,null,null], eer_display:"6.39 ± 3.93%",
+    verdict:"fail", flagship:false,
+    date:"2026-04-19", related:["E008"],
+    model:"UBM 64 + MAP r=16, +All aug",
+    hypothesis:"More Gaussian components might capture finer structure.",
+    result:"6.39 ± 3.93%. Regression vs E008 (4.21%).",
+    interpretation:"~2700 frames/component vs ~5400 for UBM-32. Over-parameterized for dataset size.",
+    next:"UBM-32 confirmed. E008 stays."
+  },
+  {
+    id:"E011", slug:"image-pca-sweep", modality:"image",
+    title:"PCA n∈{20…150} sweep + aug",
+    eer_mean:0.97, eer_std:0.86, min_dcf:0.0194,
+    folds:[2.08,0.83,0.00], eer_display:"0.97 ± 0.86% (n=50)",
+    verdict:"ok", flagship:false,
+    date:"2026-04-19", related:["E007"],
+    model:"PCA sweep + LogReg + +All aug",
+    hypothesis:"n=50 might not be optimal. Sweep to confirm.",
+    result:"n=50 confirmed optimal. <30 underfit, ≥75 plateau at 1.25%.",
+    interpretation:"n=50 has ≥2.5pp moat. PCA hyperparameter locked.",
+    next:"Image system locked. No further image arch changes."
+  },
+  {
+    id:"E012", slug:"audio-cmvn", modality:"audio",
+    title:"UBM+MAP + CMVN",
+    eer_mean:6.16, eer_std:3.78, min_dcf:0.0796,
+    folds:[null,null,null], eer_display:"6.16 ± 3.78%",
+    verdict:"fail", flagship:false,
+    date:"2026-04-19", related:["E008"],
+    model:"UBM 32 + MAP r=16, MFCC+Δ+ΔΔ, CMVN",
+    hypothesis:"Per-utterance normalization (CMVN) should reduce channel effects.",
+    result:"6.16 ± 3.78%. Regression vs E008 (4.21%).",
+    interpretation:"UBM diagonal covariance already learns scale. CMVN removes speaker-discriminative variance.",
+    next:"CMN only confirmed. CMVN killed."
+  },
+  {
+    id:"E013", slug:"audio-map-r-ablation", modality:"audio",
+    title:"MAP r∈{4,8,16,32,64} ablation",
+    eer_mean:4.21, eer_std:3.11, min_dcf:0.0509,
+    folds:[null,null,null], eer_display:"4.21 ± 3.11% (r=16)",
+    verdict:"ok", flagship:false,
+    date:"2026-04-19", related:["E008"],
+    model:"UBM 32 + MAP, +All aug",
+    hypothesis:"r=16 might not be optimal. Sweep relevance factor.",
+    result:"Flat plateau r∈{4,8,16}. r=32 regresses. r=16 confirmed.",
+    interpretation:"r=16 is robust, not arbitrary. r∈{4,8,16} equivalent — pick middle.",
+    next:"r=16 locked. No further MAP ablations."
+  },
+  {
+    id:"E014", slug:"audio-new-aug-ablation", modality:"audio",
+    title:"New audio augs (codec/noise/pitch/clip)",
+    eer_mean:4.21, eer_std:3.11, min_dcf:0.0509,
+    folds:[null,null,null], eer_display:"4.21 ± 3.11% (E008 wins)",
+    verdict:"fail", flagship:false,
+    date:"2026-04-19", related:["E008"],
+    model:"UBM 32 + MAP + new augs",
+    hypothesis:"Codec/low-noise/pitch/clipping augs might prepare for Burget's eval degradations.",
+    result:"None beat E008 +All. +Codec closest (4.81%), +LowNoise worst (7.59%).",
+    interpretation:"E008 +All is already optimal. Additional augs hurt more than they help.",
+    next:"Audio aug locked at E008. MFCC audio flagship = E008."
+  },
+  {
+    id:"E015", slug:"image-new-aug-ablation", modality:"image",
+    title:"New image augs (jpeg/blur/rotate/contrast)",
+    eer_mean:0.97, eer_std:0.86, min_dcf:0.0194,
+    folds:[null,null,null], eer_display:"0.97 ± 0.86% (E007 wins)",
+    verdict:"fail", flagship:false,
+    date:"2026-04-19", related:["E007"],
+    model:"PCA 50 + LogReg + E007 augs + new augs",
+    hypothesis:"Additional image augs might improve robustness to eval degradations.",
+    result:"None beat E007 +All. +Blur closest (1.53%), +Contrast worst (5.88%).",
+    interpretation:"E007 +All is optimal. JPEG/blur/rotate/contrast all hurt.",
+    next:"Image aug locked at E007. Image flagship confirmed."
+  },
+  {
+    id:"E016", slug:"audio-fbank", modality:"audio",
+    title:"FBank 40+Δ+ΔΔ (120d) + UBM+MAP",
+    eer_mean:9.95, eer_std:1.36, min_dcf:0.1324,
+    folds:[null,null,null], eer_display:"9.95 ± 1.36%",
+    verdict:"fail", flagship:false,
+    date:"2026-04-19", related:["E008"],
+    model:"UBM 32 + MAP r=16, FBank 40+Δ+ΔΔ",
+    hypothesis:"Filter bank features with finer resolution might beat MFCC.",
+    result:"9.95 ± 1.36%. Regression vs E008 (4.21%). 120d over-parameterizes GMM.",
+    interpretation:"DCT compression in MFCC is beneficial regularization for GMM. High-dim FBank hurts.",
+    next:"MFCC+DCT confirmed. FBank not viable with GMM-32."
+  },
+  {
+    id:"E017", slug:"audio-gmm-svm", modality:"audio",
+    title:"GMM supervector (1248d) + LinearSVM",
+    eer_mean:9.07, eer_std:7.45, min_dcf:0.1370,
+    folds:[null,null,null], eer_display:"9.07 ± 7.45%",
+    verdict:"fail", flagship:false,
+    date:"2026-04-19", related:["E008"],
+    model:"UBM 32 + MAP supervector + LinearSVC C=1",
+    hypothesis:"SVM on MAP supervector might better exploit high-dim representation.",
+    result:"9.07 ± 7.45%. n_features >> n_samples; LLR inductive bias wins.",
+    interpretation:"Curse of dimensionality. Small dataset doesn't support 1248d SVM. LLR wins.",
+    next:"LLR confirmed. Supervector-SVM not viable on this dataset."
+  },
+  {
+    id:"E018", slug:"audio-vtlp", modality:"audio",
+    title:"VTLP α∈[0.9,1.1] (replace speed)",
+    eer_mean:3.94, eer_std:3.28, min_dcf:0.0685,
+    folds:[null,null,null], eer_display:"3.94 ± 3.28%",
+    verdict:"neutral", flagship:false,
+    date:"2026-04-19", related:["E008"],
+    model:"UBM 32 + MAP r=16, VTLP warp",
+    hypothesis:"VTLP vocal tract warping may better model speaker variation than speed aug.",
+    result:"3.94 ± 3.28% (replace speed). Marginal mean gain but min-DCF regresses.",
+    interpretation:"VTLP → slight mean gain but worse calibration. Not worth the regression on min-DCF.",
+    next:"E008 +All stays. VTLP not adopted."
+  },
+  {
+    id:"E019", slug:"audio-sdc", modality:"audio",
+    title:"SDC N=7,d=1,P=3 (104d) + UBM+MAP",
+    eer_mean:12.96, eer_std:4.79, min_dcf:0.1778,
+    folds:[null,null,null], eer_display:"12.96 ± 4.79%",
+    verdict:"fail", flagship:false,
+    date:"2026-04-19", related:["E008"],
+    model:"UBM 32 + MAP r=16, SDC 104d",
+    hypothesis:"Shifted delta cepstra (longer temporal context) might help.",
+    result:"12.96 ± 4.79%. 104d over-parameterizes GMM-32 on small data.",
+    interpretation:"Δ+ΔΔ is optimal temporal context for GMM-32. SDC is too high-dimensional.",
+    next:"Δ+ΔΔ locked. SDC not viable."
+  },
+  {
+    id:"E020", slug:"audio-lpcc", modality:"audio",
+    title:"LPCC 13+Δ+ΔΔ + UBM+MAP",
+    eer_mean:3.33, eer_std:4.14, min_dcf:0.0333,
+    folds:[9.17,0.83,0.00], eer_display:"3.33 ± 4.14%",
+    verdict:"ok", flagship:false,
+    date:"2026-04-19", related:["E008","E022","E024","E025"],
+    model:"UBM 32 + MAP r=16, LPCC 13+Δ+ΔΔ, LPC order=12",
+    hypothesis:"LPCC encodes vocal tract resonances differently — may be complementary to MFCC.",
+    result:"3.33 ± 4.14% EER, min-DCF 0.0333 — better than E008 on both. Fold 0 pathology (9.17%).",
+    interpretation:"LPCC best audio mean EER + min-DCF. Fold-level errors complementary to E008.",
+    next:"Confirm LPC order=12 → E024. Explore pitch aug → E025."
+  },
+  {
+    id:"E021", slug:"audio-plp", modality:"audio",
+    title:"PLP 13+Δ+ΔΔ (Bark+EL+cbrt)",
+    eer_mean:5.56, eer_std:2.58, min_dcf:0.0944,
+    folds:[null,null,null], eer_display:"5.56 ± 2.58%",
+    verdict:"fail", flagship:false,
+    date:"2026-04-19", related:["E020"],
+    model:"UBM 32 + MAP r=16, PLP 13+Δ+ΔΔ",
+    hypothesis:"PLP perceptual compression might outperform LPCC.",
+    result:"5.56 ± 2.58%. Regression vs E008 and E020. Fold 2: 9.17%.",
+    interpretation:"Bark front-end too coarse. EL+cube-root hurt GMM fitting more than they help.",
+    next:"PLP not viable. LPCC confirmed as best feature."
+  },
+  {
+    id:"E022", slug:"audio-mfcc-lpcc-fusion", modality:"audio",
+    title:"MFCC + LPCC score fusion",
+    eer_mean:3.33, eer_std:4.14, min_dcf:0.0333,
+    folds:[null,null,null], eer_display:"3.33 ± 4.14% (=LPCC)",
+    verdict:"neutral", flagship:false,
+    date:"2026-04-19", related:["E008","E020"],
+    model:"UBM 32 + MAP, MFCC + LPCC Platt calib, grid w=0.07",
+    hypothesis:"MFCC and LPCC capture different spectral representations — fusion should help.",
+    result:"Collapsed to LPCC alone (w=0.07). Global Platt calibration asymmetric.",
+    interpretation:"Score-level fusion equalized LPCC to 2× dynamic range → grid collapses to LPCC.",
+    next:"Per-modality calibration needed. Try LPCC directly in E027 trimodal."
+  },
+  {
+    id:"E023", slug:"fusion-lpcc-image", modality:"fusion",
+    title:"LPCC + image fusion (w=0.36)",
+    eer_mean:0.52, eer_std:null, min_dcf:0.0104,
+    folds:[], eer_display:"0.52% OOF",
+    verdict:"ok", flagship:false,
+    date:"2026-04-19", related:["E009","E020","E007","E026"],
+    model:"LPCC audio (E020) + image (E007), Platt calib, grid w=0.36",
+    hypothesis:"LPCC+image fusion should beat MFCC+image (E009).",
+    result:"0.52% OOF EER, min-DCF 0.0104. −3.23pp vs E009.",
+    interpretation:"LPCC dramatically better than MFCC in fusion. Superseded by trimodal E026/E027.",
+    next:"Add MFCC channel (complementary to LPCC) → E026"
+  },
+  {
+    id:"E024", slug:"audio-lpc-order-ablation", modality:"audio",
+    title:"LPC order∈{8,10,12,14,16,20} ablation",
+    eer_mean:3.33, eer_std:4.14, min_dcf:0.0333,
+    folds:[null,null,null], eer_display:"3.33 ± 4.14% (order=12)",
+    verdict:"ok", flagship:false,
+    date:"2026-04-19", related:["E020"],
+    model:"UBM 32 + MAP r=16, LPCC 13+Δ+ΔΔ",
+    hypothesis:"LPC order=12 may not be optimal. Sweep around fs/1000+2 rule.",
+    result:"order=12 confirmed optimal. ≥2.5pp moat over all neighbors.",
+    interpretation:"fs/1000+2 = 16kHz/1000+2=18 ceiling, but 12 empirically optimal for our data.",
+    next:"order=12 locked. Explore pitch augmentation → E025."
+  },
+  {
+    id:"E025", slug:"audio-lpcc-aug-ablation", modality:"audio",
+    title:"LPCC + Pitch augmentation",
+    eer_mean:1.94, eer_std:1.57, min_dcf:0.0389,
+    folds:[4.17,0.83,0.83], eer_display:"1.94 ± 1.57%",
+    verdict:"flagship", flagship:true,
+    date:"2026-04-19", related:["E020","E014","E031"],
+    model:"UBM 32 + MAP r=16, LPCC+Δ+ΔΔ, +Pitch aug",
+    hypothesis:"Pitch shift should help LPCC specifically (formant encoding), unlike MFCC.",
+    result:"1.94 ± 1.57%. +Pitch shatters fold-0 pathology (9.17→4.17%). Std collapses.",
+    interpretation:"+Pitch is exactly right for LPCC: pitch shift shifts formants → LPCC is trained on this variation.",
+    next:"Adopt as audio flagship. TTA at inference → E031."
+  },
+  {
+    id:"E026", slug:"fusion-trimodal", modality:"fusion",
+    title:"MFCC + LPCC + image trimodal",
+    eer_mean:0.26, eer_std:null, min_dcf:0.0052,
+    folds:[], eer_display:"0.26% OOF",
+    verdict:"ok", flagship:false,
+    date:"2026-04-19", related:["E023","E027"],
+    model:"MFCC+LPCC+image, Platt calib, simplex grid (0.06/0.52/0.42)",
+    hypothesis:"Adding MFCC channel to LPCC+image fusion might squeeze residual complementarity.",
+    result:"0.26% OOF EER, min-DCF 0.0052. Halves E023. MFCC gets 6% weight.",
+    interpretation:"MFCC is tiny but real. r(MFCC,LPCC)=0.85 limits LogReg. Grid needed for EER-opt.",
+    next:"Harden with E025 LPCC+Pitch backbone → E027"
+  },
+  {
+    id:"E027", slug:"fusion-trimodal-pitch", modality:"fusion",
+    title:"MFCC + LPCC+Pitch + image (fusion flagship)",
+    eer_mean:0.26, eer_std:null, min_dcf:0.0052,
+    folds:[], eer_display:"0.26% OOF",
+    verdict:"flagship", flagship:true,
+    date:"2026-04-19", related:["E026","E025","E007","E008"],
+    model:"MFCC + LPCC+Pitch + image, Platt calib, simplex grid (0.02/0.60/0.38)",
+    hypothesis:"Substituting LPCC+Pitch backbone should improve robustness vs E026.",
+    result:"0.26% OOF EER. Matches E026 numerically but LPCC std 4.14→1.57. Grid shifts to LPCC.",
+    interpretation:"OOF is at 1-mis-ranking floor. Strictly more robust than E026 — preferred for eval shift.",
+    next:"Fusion flagship locked. Speed TTA → E031 then adopt in predict_fusion.py."
+  },
+  {
+    id:"E028", slug:"image-stress-test", modality:"image",
+    title:"Image stress test (photometric + geometric)",
+    eer_mean:0.97, eer_std:null, min_dcf:0.0194,
+    folds:[], eer_display:"0.97%→26.16% (worst)",
+    verdict:"neutral", flagship:false,
+    date:"2026-04-19", related:["E007","E030"],
+    model:"E007 flagship evaluated under stresses",
+    hypothesis:"Quantify how robust image flagship is to eval degradations.",
+    result:"Photometric: robust (JPEG q=15: 1.25%, blur: 1.71%). Geometric: brittle (rot±15°: 7.31%, occlude: 18.10%).",
+    interpretation:"PCA eigenface subspace is invariant to photometric degradation, collapses under rotation.",
+    next:"TTA rotation may help → E030. Fundamental brittleness to geometry."
+  },
+  {
+    id:"E029", slug:"permutation-test", modality:"image",
+    title:"Permutation test (validity check)",
+    eer_mean:null, eer_std:null, min_dcf:null,
+    folds:[], eer_display:"49.49% / 55.26%",
+    verdict:"ok", flagship:false,
+    date:"2026-04-20", related:["E007","E025"],
+    model:"Shuffle train labels → retrain E007 + E025",
+    hypothesis:"Shuffling labels should produce chance-level EER if no hidden leakage.",
+    result:"Image: 49.49 ± 13.64%, Audio: 55.26 ± 20.67%. Both pass chance-window [40,60].",
+    interpretation:"Models learn from labels, not auxiliary channels. No hidden leakage confirmed.",
+    next:"Validity established. All experiments trusted."
+  },
+  {
+    id:"E030", slug:"image-tta-rotation", modality:"image",
+    title:"TTA rotation at inference (−20°…+20°)",
+    eer_mean:1.25, eer_std:null, min_dcf:null,
+    folds:[], eer_display:"1.25% (clean)",
+    verdict:"fail", flagship:false,
+    date:"2026-04-20", related:["E007","E028"],
+    model:"E007 + TTA: avg log-odds over ±20°/±10°/0°",
+    hypothesis:"Averaging over rotated views might improve robustness to geometric stress.",
+    result:"TTA hurts clean EER (0.97→1.25%). All-combined worse. Geometric brittleness fundamental to PCA.",
+    interpretation:"Rotated views are out-of-distribution for eigenface subspace. No inference-time fix.",
+    next:"No TTA rotation. Keep flip-only TTA in predict_image.py."
+  },
+  {
+    id:"E031", slug:"audio-val-augmentation", modality:"audio",
+    title:"Audio val-time TTA (speed wins)",
+    eer_mean:1.67, eer_std:1.80, min_dcf:0.0333,
+    folds:[4.17,0.83,0.00], eer_display:"1.67 ± 1.80%",
+    verdict:"flagship", flagship:true,
+    date:"2026-04-20", related:["E025","E030"],
+    model:"E025 + speed TTA (original + 0.9× + 1.1×)",
+    hypothesis:"Scoring val utterances with speed-augmented views and averaging LLR reduces variance.",
+    result:"+speed_tta wins: 1.94→1.67% EER, min-DCF 0.0389→0.0333. Pitch TTA collapses fold 0.",
+    interpretation:"Speed is pitch-preserving → LPCC formants unchanged across 3 views. Averaging reduces variance.",
+    next:"Adopted in predict_audio.py and predict_fusion.py."
+  },
+  {
+    id:"E032", slug:"fusion-quality-metrics", modality:"fusion",
+    title:"Quality-aware fusion (sharpness/SNR weighting)",
+    eer_mean:0.78, eer_std:null, min_dcf:null,
+    folds:[], eer_display:"0.78% OOF",
+    verdict:"fail", flagship:false,
+    date:"2026-04-21", related:["E027","E039"],
+    model:"E027 + quality metrics (sharpness/SNR): softmax/threshold/linear weighting",
+    hypothesis:"Quality-based weighting should improve fusion when one modality is degraded.",
+    result:"0.78% OOF (all strategies tie). No improvement on clean data.",
+    interpretation:"Quality metrics don't correlate with recognition difficulty. 100% error rate on changed decisions.",
+    next:"Fixed weights (E039/E027) are optimal. Quality-aware fusion rejected."
+  },
+  {
+    id:"E033", slug:"image-adv-rotation", modality:"image",
+    title:"PCA 50+LogReg + adversarial rotation ±10°",
+    eer_mean:0.51, eer_std:0.36, min_dcf:null,
+    folds:[null,null,null], eer_display:"0.51 ± 0.36%",
+    verdict:"flagship", flagship:true,
+    date:"2026-04-21", related:["E007","E039","E051","E052"],
+    model:"PCA 50 + LogReg + adversarial rotation ±10° (2-pass training)",
+    hypothesis:"Training with adversarially hard rotations should teach rotation-invariant eigenfaces.",
+    result:"0.51 ± 0.36%. −1.02pp vs E007. rot15: 13.70%→1.04% (13×). Fold 0 pathology solved.",
+    interpretation:"Adversarial rotation aug is super-additive with brightness aug. Teaches PCA to extract tilt-robust features.",
+    next:"New image flagship. Adopt in predict_image.py."
+  },
+  {
+    id:"E034", slug:"audio-z-norm", modality:"audio",
+    title:"LPCC+Pitch + Z-norm (20-speaker cohort)",
+    eer_mean:6.20, eer_std:null, min_dcf:0.0677,
+    folds:[], eer_display:"6.20% OOF",
+    verdict:"fail", flagship:false,
+    date:"2026-04-21", related:["E025","E037"],
+    model:"E025 + cohort Z-norm (20-speaker cohort)",
+    hypothesis:"Z-norm normalizes session/channel effects via cohort score distribution.",
+    result:"6.20% OOF EER (= raw). min-DCF 0.0677 improves vs 0.1240 raw.",
+    interpretation:"Dataset too small for effective cohort estimation. Z-norm adds noise rather than signal to EER.",
+    next:"Z-norm not adopted. Raw LPCC scores stay."
+  },
+  {
+    id:"E035", slug:"fusion-feature-concat", modality:"fusion",
+    title:"MFCC+LPCC feature-level concat (78d) + UBM-MAP",
+    eer_mean:null, eer_std:null, min_dcf:null,
+    folds:[], eer_display:"FAILED",
+    verdict:"fail", flagship:false,
+    date:"2026-04-21", related:["E022","E026"],
+    model:"MFCC+LPCC 78d concatenation + UBM-MAP",
+    hypothesis:"Feature-level fusion should capture joint spectral representations in a single UBM.",
+    result:"FAILED — dimension mismatch bug. MFCC and LPCC have different frame counts per utterance.",
+    interpretation:"Frame-level concat requires aligned frame extraction. Score-level fusion is more robust for this setup.",
+    next:"Score-level fusion (E039) preferred. Feature-level deferred."
+  },
+  {
+    id:"E036", slug:"image-pyramid-pca", modality:"image",
+    title:"Pyramid PCA 80/40/20 (87d) + LogReg",
+    eer_mean:1.53, eer_std:0.52, min_dcf:null,
+    folds:[null,null,null], eer_display:"1.53 ± 0.52%",
+    verdict:"fail", flagship:false,
+    date:"2026-04-21", related:["E007","E011"],
+    model:"PCA pyramid: 80×80 + 40×40 + 20×20 (87d) + LogReg",
+    hypothesis:"Multi-resolution features might capture appearance at different scales.",
+    result:"1.53 ± 0.52% EER. Worse than E007+aug (0.97%). Best variant: pyramid_3.",
+    interpretation:"Good augmentation outperforms multi-scale features. Single-scale PCA+aug is optimal.",
+    next:"Pyramid PCA rejected. E007/E033 stays."
+  },
+  {
+    id:"E037", slug:"audio-tied-covariance", modality:"audio",
+    title:"LPCC + UBM-32 tied covariance",
+    eer_mean:0.69, eer_std:0.98, min_dcf:null,
+    folds:[2.08,null,null], eer_display:"0.69 ± 0.98%",
+    verdict:"flagship", flagship:true,
+    date:"2026-04-21", related:["E025","E042","E052"],
+    model:"UBM 32 + MAP r=16, LPCC+Δ+ΔΔ, tied covariance (1521 shared params)",
+    hypothesis:"Tied covariance shares a single scatter matrix → stronger regularization for small data.",
+    result:"0.69 ± 0.98%. 6.3× better than diagonal (4.35%). Fold 0: 10.56%→2.08%.",
+    interpretation:"Tied cov is the right inductive bias for small data: 1521 shared params vs 48k full. GMM learns orthogonal means.",
+    next:"New audio flagship. Add speed TTA → E042."
+  },
+  {
+    id:"E038", slug:"audio-gmm-ensemble", modality:"audio",
+    title:"E037 tied cov + GMM ensemble (3–5 seeds)",
+    eer_mean:null, eer_std:null, min_dcf:null,
+    folds:[], eer_display:"TIMED OUT",
+    verdict:"fail", flagship:false,
+    date:"2026-04-21", related:["E037"],
+    model:"E037 × 3–5 random seeds, score averaging",
+    hypothesis:"Seed ensemble should reduce GMM initialization variance.",
+    result:"Timed out. No results. 3–5× inference cost for marginal expected gain.",
+    interpretation:"E037 tied cov already solved fold 0. Ensemble offers no marginal benefit at 3–5× cost.",
+    next:"Not adopted. E037 stays."
+  },
+  {
+    id:"E039", slug:"fusion-new-backbones", modality:"fusion",
+    title:"E037+E033+MFCC trimodal (fusion flagship)",
+    eer_mean:0.26, eer_std:null, min_dcf:0.0052,
+    folds:[], eer_display:"0.26% OOF",
+    verdict:"flagship", flagship:true,
+    date:"2026-04-21", related:["E027","E037","E033","E052"],
+    model:"LPCC tied cov (E037) + image adv-rot (E033) + MFCC, Platt calib + simplex grid",
+    hypothesis:"Stronger backbones (E037/E033) should maintain or improve trimodal fusion.",
+    result:"0.26% OOF, 0 errors. Weights: img=0.66, lpcc=0.34, mfcc=0.00. MFCC redundant.",
+    interpretation:"Tied cov LPCC replaces E025 without EER regression. MFCC weight → 0 with stronger LPCC backbone.",
+    next:"Fusion flagship locked. Update predict_fusion.py with E037+E033 backbones."
+  },
+  {
+    id:"E040", slug:"image-logreg-c-sweep", modality:"image",
+    title:"E033 + LogReg C sweep {0.1,1,10,100} + L1",
+    eer_mean:0.97, eer_std:0.86, min_dcf:null,
+    folds:[null,null,null], eer_display:"0.97 ± 0.86% (C=0.1/1.0)",
+    verdict:"neutral", flagship:false,
+    date:"2026-04-21", related:["E033","E011"],
+    model:"PCA 50 + LogReg C∈{0.1,1,10,100}, L1/L2 penalty",
+    hypothesis:"Tighter regularization (C<1) might improve cross-session generalization.",
+    result:"C=0.1 ties C=1.0 (0.97%). C>10 catastrophic. L1 penalty: 13.52% EER.",
+    interpretation:"C=1.0 confirmed optimal. L2 preferred over L1 for correlated PCA features.",
+    next:"C=1.0 locked. E033 hyperparameters unchanged."
+  },
+  {
+    id:"E041", slug:"image-he-clahe", modality:"image",
+    title:"E033 + HE/CLAHE preprocessing",
+    eer_mean:3.01, eer_std:null, min_dcf:null,
+    folds:[], eer_display:"3.01% (raw wins)",
+    verdict:"fail", flagship:false,
+    date:"2026-04-22", related:["E033","E007"],
+    model:"PCA 50 + LogReg + histogram equalization / CLAHE",
+    hypothesis:"Contrast normalization should handle session-level lighting variation.",
+    result:"HE/CLAHE triples EER (3.01% vs 0.97%). Raw pixels + brightness aug is optimal.",
+    interpretation:"Brightness augmentation already covers lighting variation. HE distorts the PCA eigenspace.",
+    next:"Raw pixels confirmed. HE/CLAHE rejected."
+  },
+  {
+    id:"E042", slug:"audio-speed-tta-tied", modality:"audio",
+    title:"E037 tied cov + speed TTA (3 views)",
+    eer_mean:0.46, eer_std:0.65, min_dcf:null,
+    folds:[null,null,null], eer_display:"0.46 ± 0.65%",
+    verdict:"ok", flagship:false,
+    date:"2026-04-22", related:["E037","E044","E052"],
+    model:"UBM 32 tied cov + MAP r=16, LPCC+Δ+ΔΔ, speed TTA (0.9×/1.0×/1.1×)",
+    hypothesis:"Speed TTA at inference should reduce variance further on tied cov system.",
+    result:"0.46 ± 0.65% EER (−0.23pp vs E037 0.69%). Speed TTA complements tied covariance.",
+    interpretation:"Speed TTA is pitch-preserving for LPCC → safe at inference. Superseded by E052 which adds codec aug.",
+    next:"Add codec bandwidth aug → E052."
+  },
+  {
+    id:"E043", slug:"image-tta-flip-rot5", modality:"image",
+    title:"E033 + TTA flip+rot5 (5 views) [INVALID]",
+    eer_mean:0.74, eer_std:0.57, min_dcf:null,
+    folds:[null,null,null], eer_display:"0.74 ± 0.57% (invalid)",
+    verdict:"fail", flagship:false,
+    date:"2026-04-22", related:["E033","E049"],
+    model:"E033 + TTA: flip + rot±5° averaged log-odds",
+    hypothesis:"TTA with mild rotation should reduce geometric variance at inference.",
+    result:"0.74 ± 0.57% claimed — but compared vs wrong E033 baseline (0.97% instead of 0.51%). E049 failed to replicate.",
+    interpretation:"Invalid result — compared against a broken E033 replication. E033 (0.51%) remains best.",
+    next:"E033 remains image flagship. No image TTA adopted."
+  },
+  {
+    id:"E044", slug:"audio-map-r-tied", modality:"audio",
+    title:"MAP r sweep on tied cov (r∈{4,8,16,32,64})",
+    eer_mean:0.46, eer_std:0.65, min_dcf:null,
+    folds:[null,null,null], eer_display:"0.46 ± 0.65% (r=16)",
+    verdict:"neutral", flagship:false,
+    date:"2026-04-22", related:["E042","E013"],
+    model:"UBM 32 tied cov + MAP r∈{4,8,16,32,64}",
+    hypothesis:"Optimal r may differ for tied vs diagonal covariance.",
+    result:"r=16 confirmed optimal. Same result as diagonal ablation (E013).",
+    interpretation:"r=16 is robust to covariance type. The plateau at r∈{4,8,16} holds for tied cov too.",
+    next:"r=16 locked. No further MAP ablations."
+  },
+  {
+    id:"E045", slug:"audio-score-ensemble", modality:"audio",
+    title:"MFCC+LPCC+PLP score ensemble",
+    eer_mean:3.23, eer_std:null, min_dcf:null,
+    folds:[], eer_display:"3.23% OOF",
+    verdict:"fail", flagship:false,
+    date:"2026-04-22", related:["E022","E020","E021"],
+    model:"MFCC + LPCC + PLP, Platt calib + grid",
+    hypothesis:"Three-feature audio ensemble might leverage complementary spectral representations.",
+    result:"3.23% OOF. LPCC alone (2.45% OOF) wins. Adding MFCC/PLP dilutes LPCC.",
+    interpretation:"Calibration asymmetry between features kills ensemble. LPCC already captures what matters.",
+    next:"LPCC single-system stays. Three-feature ensemble not viable."
+  },
+  {
+    id:"E046", slug:"fusion-product-rule", modality:"fusion",
+    title:"E042+E043 trimodal product rule [mislabeled]",
+    eer_mean:0.52, eer_std:null, min_dcf:null,
+    folds:[], eer_display:"0.52% OOF",
+    verdict:"fail", flagship:false,
+    date:"2026-04-22", related:["E039","E048"],
+    model:"E042+E043+MFCC product rule (geometric mean of posteriors)",
+    hypothesis:"Product rule (Bayes assumption) is more principled than linear weight search.",
+    result:"0.52% OOF — worse than E039 (0.26%). Mislabeled flagship: compared vs broken E039 replication (2.97%).",
+    interpretation:"Product rule inferior to Platt calibration + simplex grid. E039 remains fusion flagship.",
+    next:"E039 confirmed optimal. Linear calib + simplex grid stays."
+  },
+  {
+    id:"E047", slug:"audio-vtln", modality:"audio",
+    title:"VTLN warping α∈[0.9,1.1]",
+    eer_mean:null, eer_std:null, min_dcf:null,
+    folds:[], eer_display:"31.45% (buggy impl)",
+    verdict:"fail", flagship:false,
+    date:"2026-04-22", related:["E018","E037"],
+    model:"E037 + VTLN frequency warping α∈[0.9,1.1]",
+    hypothesis:"Vocal tract length normalization via frequency warping should normalize speaker differences.",
+    result:"31.45% EER — catastrophic. Bug: warped cepstral coefficients directly instead of mel-filter frequencies.",
+    interpretation:"VTLN must be applied in the frequency domain before cepstral analysis, not post-hoc to the coefficients.",
+    next:"VTLN not adopted. Requires correct frequency-domain reimplementation."
+  },
+  {
+    id:"E048", slug:"fusion-bimodal-product", modality:"fusion",
+    title:"E042+E043 bimodal product rule",
+    eer_mean:4.59, eer_std:null, min_dcf:null,
+    folds:[], eer_display:"4.59% OOF",
+    verdict:"fail", flagship:false,
+    date:"2026-04-22", related:["E046","E039"],
+    model:"E042+E043 bimodal product rule (no MFCC)",
+    hypothesis:"Bimodal product rule without MFCC might avoid MFCC calibration issues.",
+    result:"4.59% OOF — worse than trimodal E046 (0.52%) and E039 (0.26%). Product rule + no calibration fails.",
+    interpretation:"Trimodal always better than bimodal. Platt calibration + grid is essential for score fusion.",
+    next:"E039 confirmed optimal fusion. No further product rule experiments."
+  },
+  {
+    id:"E049", slug:"image-more-tta", modality:"image",
+    title:"E043 + more TTA views (rot7/9/bright/noise)",
+    eer_mean:4.38, eer_std:null, min_dcf:null,
+    folds:[], eer_display:"4.38% (replication fails)",
+    verdict:"fail", flagship:false,
+    date:"2026-04-22", related:["E043","E033"],
+    model:"E043 + TTA rot±7°/±9°/brightness/noise views",
+    hypothesis:"More TTA views should further improve robustness.",
+    result:"4.38% vs claimed 0.74% in E043. E043 baseline not replicable.",
+    interpretation:"E043 result was fragile/invalid. Confirms E033 (0.51%) is the definitive image flagship.",
+    next:"No image TTA. E033 is the definitive image flagship."
+  },
+  {
+    id:"E051", slug:"stress-test-e033-e042", modality:"image",
+    title:"Stress test: E033 image + E042 audio (16 conditions)",
+    eer_mean:null, eer_std:null, min_dcf:null,
+    folds:[], eer_display:"see detail",
+    verdict:"neutral", flagship:false,
+    date:"2026-04-22", related:["E033","E042","E052"],
+    model:"E033 image + E042 audio under 8 degradation conditions each",
+    hypothesis:"Quantify flagship robustness to expected eval degradations.",
+    result:"Image: jpeg/blur/downsample=0.51% (robust). rot15=7.59%. occlude=11.06%. Audio: codec8kHz=13.33%, noise10dB=6.85%, speed absorbed by TTA.",
+    interpretation:"E033 photometrically bulletproof. Codec is audio's main vulnerability — LPCC formants above 4kHz destroyed by 8kHz BW limit.",
+    next:"Add codec bandwidth augmentation to audio → E052."
+  },
+  {
+    id:"E052", slug:"audio-codec-aug", modality:"audio",
+    title:"E042 + codec bandwidth aug (audio flagship)",
+    eer_mean:0.46, eer_std:0.65, min_dcf:null,
+    folds:[null,null,null], eer_display:"0.46 ± 0.65% clean",
+    verdict:"flagship", flagship:true,
+    date:"2026-04-22", related:["E042","E051","E039"],
+    model:"UBM 32 tied cov + MAP r=16, LPCC+Δ+ΔΔ, speed TTA + codec bandwidth aug",
+    hypothesis:"Training on bandwidth-limited copies (8kHz BW) teaches the model to survive codec degradation.",
+    result:"Clean EER unchanged (0.46%). Codec EER 13.33%→3.33% (−10pp, −75%). Image Cutout aug rejected (+1.20pp regression).",
+    interpretation:"Codec aug teaches LPCC to work without high-frequency formants. Clean performance unaffected — robustness is free.",
+    next:"Audio flagship locked. predict_audio.py and predict_fusion.py updated. Self-test re-passed."
+  },
+  {
+    id:"E053", slug:"audio-2s-truncation", modality:"audio",
+    title:"Hard 2-second prefix truncation",
+    eer_mean:0.83, eer_std:0.68, min_dcf:0.0167,
+    folds:[0.00,1.67,0.83], eer_display:"0.83 ± 0.68%",
+    verdict:"fail", flagship:false,
+    date:"2026-04-22", related:["E052"],
+    model:"E052 + discard first 2 s of every wav at load time (train + val)",
+    hypothesis:"Removing pre-speech noise by hard-cutting the first 2 s should improve EER.",
+    result:"Clean EER 0.46%→0.83% (+0.37pp). Codec EER 3.33%→2.78% (marginal, within noise). Clean DCF 0.0093→0.0167.",
+    interpretation:"Truncation redistributes fold errors rather than eliminating them. Fixes fold 0 (session 03 likely has noise at start) but breaks folds 1–2 whose speakers start immediately. CMN already handles stationary pre-speech noise per utterance. The codec EER mean improvement is a fold-shuffling artefact.",
+    next:"E052 remains audio flagship. No further truncation experiments warranted."
+  }
+];
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const MC = { audio:"#7aa7ff", image:"#4ade80", fusion:"#c4a7ff" };
+
+function eerColor(v) {
+  if (v === null || v === undefined) return "var(--t3)";
+  return v < 3 ? "var(--ok)" : v < 8 ? "var(--warn)" : "var(--fail)";
+}
+
+function vicon(v) {
+  if (v === "flagship") return `<span class="row-v vfs" title="flagship">★</span>`;
+  if (v === "fail")     return `<span class="row-v vno" title="negative">✕</span>`;
+  if (v === "ok")       return `<span class="row-v vok" title="ok">✓</span>`;
+  return `<span class="row-v" title="neutral">·</span>`;
+}
+
+// ── Experiment rows ───────────────────────────────────────────────────────────
+function buildGrid() {
+  const grid = document.getElementById("expGrid");
+  EXPS.forEach(e => {
+    const div = document.createElement("div");
+    div.className = "exp-row";
+    div.dataset.id = e.id;
+    div.dataset.m  = e.modality;
+    div.dataset.fs = e.flagship ? "1" : "0";
+    div.dataset.v  = e.verdict;
+    div.innerHTML = `
+      <span class="row-bar"></span>
+      <span class="row-id">${e.id}</span>
+      <span class="row-dot ${e.modality}"></span>
+      <span class="row-title">${e.title}</span>
+      <span class="row-eer" style="color:${eerColor(e.eer_mean)}">${e.eer_display}</span>
+      ${vicon(e.verdict)}`;
+    div.addEventListener("click", () => showDetail(e.id));
+    grid.appendChild(div);
+  });
+}
+
+// ── Filters ───────────────────────────────────────────────────────────────────
+function setupFilters() {
+  document.querySelectorAll(".fb").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".fb").forEach(b => b.classList.remove("on"));
+      btn.classList.add("on");
+      const f = btn.dataset.f;
+      let count = 0;
+      document.querySelectorAll(".exp-row").forEach(r => {
+        const show = f==="all"
+          || (["audio","image","fusion"].includes(f) && r.dataset.m===f)
+          || (f==="flagship" && r.dataset.fs==="1")
+          || (f==="fail"     && r.dataset.v==="fail");
+        r.classList.toggle("hidden", !show);
+        if (show) count++;
+      });
+      document.getElementById("expCount").textContent = `${count} shown`;
+    });
+  });
+}
+
+// ── Detail panel ──────────────────────────────────────────────────────────────
+function fbar(v) {
+  if (v===null) return "";
+  return `<span class="fb-bar" style="width:${Math.round(v/20*48)}px;background:${eerColor(v)}"></span>`;
+}
+
+function showDetail(id) {
+  document.querySelectorAll(".exp-row").forEach(r => r.classList.remove("sel"));
+  const row = document.querySelector(`.exp-row[data-id="${id}"]`);
+  if (row) { row.classList.add("sel"); row.scrollIntoView({block:"nearest",behavior:"smooth"}); }
+
+  const e = EXPS.find(x => x.id===id);
+  if (!e) return;
+
+  document.getElementById("detailPlaceholder").style.display = "none";
+  document.getElementById("detailMeta").textContent = e.id + " · " + e.date;
+  const ct = document.getElementById("detailContent");
+  ct.classList.add("vis");
+
+  const foldRows = e.folds && e.folds.length===3
+    ? ["Fold 0","Fold 1","Fold 2"].map((lbl,i) => {
+        const v = e.folds[i];
+        return `<tr><td>${lbl}</td>
+          <td style="color:${eerColor(v)}">${v!==null?v.toFixed(2)+"%":"—"}</td>
+          <td>${fbar(v)}</td></tr>`;
+      }).join("") + `<tr>
+        <td>Mean ± std</td>
+        <td style="color:${eerColor(e.eer_mean)}">${e.eer_display}</td>
+        <td></td></tr>`
+    : "";
+
+  const chips = (e.related||[]).map(r =>
+    `<span class="rel-chip" onclick="showDetail('${r}')">${r}</span>`).join("");
+
+  const eerLong = e.eer_display.length > 10;
+
+  ct.innerHTML = `
+    <div class="d-head">
+      <div class="d-meta">
+        <span class="d-dot ${e.modality}"></span>
+        <span class="d-mod ${e.modality}">${e.modality}</span>
+        <span class="d-sep">/</span>
+        <span>${e.id}</span>
+        <span class="d-sep">/</span>
+        <span>${e.date}</span>
+      </div>
+      <div class="d-title">${e.title}</div>
+      ${e.flagship?`<div class="d-flag-tag">★ Flagship system</div>`:""}
+    </div>
+
+
+    <div class="mbox-grid">
+      <div class="mbox">
+        <div class="ml">EER</div>
+        <div class="mv${eerLong?" mono":""}" style="color:${eerColor(e.eer_mean)}">${e.eer_display}</div>
+      </div>
+      <div class="mbox">
+        <div class="ml">min-DCF</div>
+        <div class="mv mono" style="color:${e.min_dcf?eerColor(e.min_dcf*100):"var(--t3)"}">${e.min_dcf?e.min_dcf.toFixed(4):"—"}</div>
+      </div>
+    </div>
+
+    ${foldRows?`<div class="ds">
+      <h4>per-fold breakdown</h4>
+      <table class="ft"><tbody>${foldRows}</tbody></table>
+    </div>`:""}
+
+    <div class="ds">
+      <h4>model</h4>
+      <p class="mono">${e.model}</p>
+    </div>
+
+    <div class="ds"><h4>hypothesis</h4><p>${e.hypothesis}</p></div>
+    <div class="ds"><h4>result</h4><p style="color:${eerColor(e.eer_mean)}">${e.result}</p></div>
+    <div class="ds"><h4>interpretation</h4><p>${e.interpretation}</p></div>
+    <div class="ds ds-divider"><h4>next step</h4><p style="color:var(--t2)">${e.next}</p></div>
+
+    ${chips?`<div class="ds ds-divider" style="margin-bottom:4px"><h4>related</h4><div class="rel">${chips}</div></div>`:""}
+  `;
+}
+
+// ── Leaderboard ───────────────────────────────────────────────────────────────
+function buildLeaderboard() {
+  const c = document.getElementById("leaderboard");
+  const rows = [
+    {lbl:"Trimodal fusion (E039)",       m:"fusion", eer:"0.26%", v:0.26,  dcf:"0.0052", exp:"E039"},
+    {lbl:"LPCC + tied cov + codec aug",  m:"audio",  eer:"0.46%", v:0.46,  dcf:"—",      exp:"E052"},
+    {lbl:"PCA + LogReg + adv-rot",       m:"image",  eer:"0.51%", v:0.51,  dcf:"—",      exp:"E033"},
+    {lbl:"LPCC + image bimodal fusion",  m:"fusion", eer:"0.52%", v:0.52,  dcf:"0.0104", exp:"E023"},
+    {lbl:"LPCC + tied cov (no TTA)",     m:"audio",  eer:"0.69%", v:0.69,  dcf:"—",      exp:"E037"},
+    {lbl:"PCA + LogReg + brightness aug",m:"image",  eer:"0.97%", v:0.97,  dcf:"0.0194", exp:"E007"},
+    {lbl:"LPCC + pitch + speed TTA",     m:"audio",  eer:"1.67%", v:1.67,  dcf:"0.0333", exp:"E031"},
+    {lbl:"MFCC + GMM baseline",          m:"audio",  eer:"17.92%",v:17.92, dcf:"0.2250", exp:"E001"},
+  ];
+  rows.forEach((b,i) => {
+    const row = document.createElement("div");
+    row.className = "lb-row";
+    row.onclick = () => {
+      const id = b.exp.split("+")[0];
+      if (EXPS.find(e => e.id === id)) showDetail(id);
+    };
+    row.style.cursor = "pointer";
+    row.innerHTML = `
+      <div class="lb-n${i<3?" tp":""}">${i+1}</div>
+      <div class="lb-dot ${b.m}"></div>
+      <div class="lb-nm">${b.lbl}</div>
+      <div class="lb-m">
+        <div class="lb-eer" style="color:${eerColor(b.v)}">${b.eer}</div>
+        <div class="lb-dcf">${b.dcf}</div>
+      </div>`;
+    c.appendChild(row);
+  });
+}
+
+// ── EER Progression Chart ─────────────────────────────────────────────────────
+function buildChart() {
+  const canvas = document.getElementById("eerChart");
+  const ctx = canvas.getContext("2d");
+
+  // gradient area fills
+  function makeFill(hex) {
+    const g = ctx.createLinearGradient(0, 0, 0, 210);
+    g.addColorStop(0, hex + "33");   // ~20% alpha
+    g.addColorStop(0.6, hex + "10"); // ~6%
+    g.addColorStop(1, hex + "00");
+    return g;
+  }
+
+  const ap=[], ip=[];
+  EXPS.forEach(e => {
+    const x = parseInt(e.id.replace("E",""));
+    if (e.eer_mean===null) return;
+    if (e.modality==="audio") ap.push({x, y:e.eer_mean});
+    else if (e.modality==="image") ip.push({x, y:e.eer_mean});
+  });
+  const fp = [{x:9,y:3.75},{x:23,y:0.52},{x:26,y:0.26},{x:27,y:0.26},{x:32,y:0.78},{x:39,y:0.26},{x:46,y:0.52},{x:48,y:4.59}];
+  const fs = new Set(EXPS.filter(e=>e.flagship).map(e=>parseInt(e.id.replace("E",""))));
+
+  const pcolor = (pts,mod) => pts.map(p =>
+    fs.has(p.x) && EXPS.find(e=>parseInt(e.id.replace("E",""))===p.x&&e.modality===mod)?.flagship
+      ? "#fbbf24" : MC[mod]);
+  const prad = (pts,mod) => pts.map(p =>
+    EXPS.find(e=>parseInt(e.id.replace("E",""))===p.x&&e.modality===mod)?.flagship ? 5.5 : 2.5);
+  const pborder = (pts,mod) => pts.map(p =>
+    EXPS.find(e=>parseInt(e.id.replace("E",""))===p.x&&e.modality===mod)?.flagship
+      ? "rgba(10,10,11,0.9)" : "transparent");
+
+  // custom plugin: thin guide lines at flagship EERs
+  const flagshipGuides = {
+    id: "flagshipGuides",
+    afterDraw(chart) {
+      const {ctx, chartArea, scales:{x, y}} = chart;
+      if (!chartArea) return;
+      const guides = [
+        { y: 0.26, color: "rgba(196,167,255,0.55)", label: "fusion 0.26%" },
+        { y: 0.46, color: "rgba(122,167,255,0.45)", label: "audio  0.46%" },
+        { y: 0.51, color: "rgba(74,222,128,0.45)",  label: "image  0.51%" },
+      ];
+      ctx.save();
+      ctx.setLineDash([2, 4]);
+      ctx.lineWidth = 1;
+      ctx.font = "10px 'JetBrains Mono', monospace";
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      guides.forEach(g => {
+        const yp = y.getPixelForValue(g.y);
+        if (yp < chartArea.top || yp > chartArea.bottom) return;
+        ctx.strokeStyle = g.color;
+        ctx.beginPath();
+        ctx.moveTo(chartArea.left, yp);
+        ctx.lineTo(chartArea.right - 86, yp);
+        ctx.stroke();
+        ctx.fillStyle = g.color.replace(/[0-9.]+\)/, "0.85)");
+        ctx.fillText(g.label, chartArea.right - 4, yp);
+      });
+      ctx.restore();
+    }
+  };
+
+  new Chart(ctx, {
+    type:"line",
+    data:{ datasets:[
+      { label:"Audio", data:ap, borderColor:"#7aa7ff", borderWidth:1.6,
+        backgroundColor: makeFill("#7aa7ff"),
+        pointBackgroundColor:pcolor(ap,"audio"),
+        pointBorderColor:pborder(ap,"audio"),
+        pointBorderWidth:1.5,
+        pointRadius:prad(ap,"audio"), pointHoverRadius:6, tension:0.4, fill:true,
+        cubicInterpolationMode:"monotone" },
+      { label:"Image", data:ip, borderColor:"#4ade80", borderWidth:1.6,
+        backgroundColor: makeFill("#4ade80"),
+        pointBackgroundColor:pcolor(ip,"image"),
+        pointBorderColor:pborder(ip,"image"),
+        pointBorderWidth:1.5,
+        pointRadius:prad(ip,"image"), pointHoverRadius:6, tension:0.4, fill:true,
+        cubicInterpolationMode:"monotone" },
+      { label:"Fusion", data:fp, borderColor:"#c4a7ff", borderWidth:1.8,
+        backgroundColor: makeFill("#c4a7ff"),
+        pointBackgroundColor:fp.map(p=>(p.x===27||p.x===39)?"#fbbf24":"#c4a7ff"),
+        pointBorderColor:fp.map(p=>(p.x===27||p.x===39)?"rgba(10,10,11,0.9)":"transparent"),
+        pointBorderWidth:1.5,
+        pointRadius:fp.map(p=>(p.x===27||p.x===39)?5.5:2.5), pointHoverRadius:6, tension:0.4, fill:true,
+        borderDash:[4,3], cubicInterpolationMode:"monotone" },
+    ]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{mode:"nearest",intersect:false},
+      animation:{duration:700, easing:"easeOutQuart"},
+      layout: { padding: { top: 8, right: 4, bottom: 0, left: 0 } },
+      plugins:{
+        legend:{
+          align: "end", position:"top",
+          labels:{ color:"#c0c0cc", font:{family:"'Inter',sans-serif",size:11,weight:"500"},
+            boxWidth:8, boxHeight:8, padding:14, usePointStyle:true, pointStyle:"circle" }
+        },
+        tooltip:{
+          backgroundColor:"rgba(20,20,24,0.96)",
+          borderColor:"rgba(255,255,255,0.08)", borderWidth:1,
+          titleColor:"#ededef", bodyColor:"#c0c0cc",
+          titleFont:{family:"'Inter',sans-serif",size:12,weight:"600"},
+          bodyFont:{family:"'JetBrains Mono',monospace",size:11},
+          padding:10, cornerRadius:8, displayColors:false,
+          callbacks:{
+            title: c => { const e=EXPS.find(e=>parseInt(e.id.replace("E",""))===c[0].parsed.x); return e?`${e.id} · ${e.title}`:""; },
+            label: c => `${c.dataset.label}: ${c.parsed.y.toFixed(2)}%`
+          }
+        }
+      },
+      scales:{
+        x:{ type:"linear", min:0, max:53,
+          ticks:{color:"#5a5a66",font:{size:10,family:"'JetBrains Mono',monospace"},stepSize:5,padding:6,
+            callback: v => "E" + String(v).padStart(2,"0")},
+          grid:{color:"rgba(255,255,255,0.025)",drawTicks:false},
+          border:{display:false}
+        },
+        y:{
+          min:0,
+          ticks:{color:"#5a5a66",font:{size:10,family:"'JetBrains Mono',monospace"},callback:v=>v+"%",padding:8},
+          grid:{color:"rgba(255,255,255,0.03)",drawTicks:false},
+          border:{display:false}
+        }
+      }
+    },
+    plugins:[flagshipGuides]
+  });
+}
+
+buildGrid();
+setupFilters();
+buildLeaderboard();
+buildChart();
+</script>
+</body>
+</html>
