@@ -1,6 +1,8 @@
 # Data — provided by the course, not ours to version
 /data/
 SUR_projekt2025-2026.zip
+SUR_projekt2025-2026_eval.zip
+*.zip
 
 # Python
 __pycache__/
@@ -20,6 +22,8 @@ venv/
 .mypy_cache/
 .ruff_cache/
 .uv/
+.uv-cache/
+.mplconfig/
 
 # Jupyter
 .ipynb_checkpoints/
@@ -27,10 +31,24 @@ venv/
 # Cached features / heavy artifacts (reproducible from code)
 cache/
 results/
+results.txt
 logs/
 
 # Generated synthetic eval data
 eval_synthetic/
+
+# Local dashboards / analysis scratchpads
+dashboard.py
+LOG.md
+scripts/
+docs/obhajoba.md
+docs/obhajoba_interactive.html
+docs/metrics_interactive.html
+docs/figures/dataset_*
+
+# Local secrets / external tools
+key.txt
+rclone-current-osx-arm64.zip
 
 # OS / editor
 .DS_Store
