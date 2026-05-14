@@ -66,6 +66,14 @@ The detailed design, validation protocol, and final numbers are in
 [`docs/dokumentace.md`](docs/dokumentace.md) and
 [`docs/dokumentace.pdf`](docs/dokumentace.pdf).
 
+## Fusion complementarity
+
+The final fusion benefits from different error patterns in the image and audio
+streams. Samples missed by one modality are often still separated by the other,
+which makes weighted score-level fusion effective.
+
+![Audio and image score complementarity](docs/figures/alt_c_complementarity.png)
+
 ## Sanity check
 
 Run the self-test before packaging or publishing changes. It builds a small
